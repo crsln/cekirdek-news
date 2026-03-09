@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Çekirdek — Türkiye Haberleri</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: {
+              950: '#0d0c0a', 900: '#141310', 800: '#1c1b17',
+              700: '#252420', 600: '#35342f', 500: '#4a4843',
+              400: '#6e6c66', 300: '#9b9890', 200: '#c4c1b8',
+              100: '#e0ddd5', 50:  '#f0ede6',
+            },
+            vermeil: {
+              700: '#8b1a0e', 600: '#a82918', 500: '#c0392b',
+              400: '#d4380d', 300: '#e05a47',
+            },
+          },
+          fontFamily: {
+            display: ['"Newsreader"', 'Georgia', 'serif'],
+            mono: ['"DM Mono"', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      background-color: #0d0c0a;
+      color: #e0ddd5;
+      font-family: 'DM Mono', monospace;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Grain overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 300px 300px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────── */
+    #app-header {
+      flex-shrink: 0;
+      background: rgba(13, 12, 10, 0.97);
+      border-bottom: 1px solid #1c1b17;
+      backdrop-filter: blur(12px);
+      z-index: 50;
+    }
+
+    .wordmark {
+      font-family: 'Newsreader', Georgia, serif;
+      font-weight: 300;
+      font-style: normal;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      color: #f0ede6;
+      font-size: 2.2rem;
+    }
+
+    /* ── Split layout ─────────────────────────────────────────────── */
+    #split-container { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+    /* ── Left panel ───────────────────────────────────────────────── */
+    #left-panel {
+      flex: 0 0 50%;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #1c1b17;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    #filter-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-bottom: 1px solid #1c1b17;
+      overflow-x: auto;
+      background: #0d0c0a;
+    }
+    #filter-bar::-webkit-scrollbar { display: none; }
+    #filter-bar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    #cards-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+    #cards-scroll::-webkit-scrollbar { width: 4px; }
+    #cards-scroll::-webkit-scrollbar-track { background: #0d0c0a; }
+    #cards-scroll::-webkit-scrollbar-thumb { background: #252420; border-radius: 2px; }
+
+    /* ── Right panel ──────────────────────────────────────────────── */
+    #right-panel {
+      flex: 0 0 50%;
+      display: flex;
+      flex-direction: column;
+      background: #0f0e0c;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    #panel-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #252420;
+      gap: 14px;
+    }
+    #panel-empty-arrow { font-size: 1.8rem; opacity: 0.5; }
+    #panel-empty-text { font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; }
+
+    #panel-reader { display: none; flex-direction: column; height: 100%; min-height: 0; }
+    #panel-reader.open { display: flex; }
+
+    #reader-topbar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      border-bottom: 1px solid #1c1b17;
+      background: #141310;
+    }
+
+    #reader-source-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      font-size: 0.6rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: #6e6c66;
+      font-weight: 500;
+    }
+
+    .panel-btn {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 2px;
+      border: 1px solid #35342f;
+      background: transparent;
+      color: #6e6c66;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.58rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.12s ease, color 0.12s ease;
+    }
+    .panel-btn:hover { border-color: #9b9890; color: #e0ddd5; }
+    .panel-btn:focus-visible { outline: 1px solid #c0392b; outline-offset: 2px; }
+    .panel-btn:active { opacity: 0.75; }
+
+    /* Article content area */
+    #reader-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px 48px 60px;
+      min-height: 0;
+    }
+    #reader-content::-webkit-scrollbar { width: 4px; }
+    #reader-content::-webkit-scrollbar-track { background: #0f0e0c; }
+    #reader-content::-webkit-scrollbar-thumb { background: #252420; border-radius: 2px; }
+
+    #article-eyebrow {
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #c0392b;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #article-eyebrow::after {
+      content: '';
+      display: block;
+      height: 1px;
+      flex: 1;
+      background: #1c1b17;
+    }
+
+    #article-title {
+      font-family: 'Newsreader', Georgia, serif;
+      font-weight: 400;
+      font-style: normal;
+      font-size: 1.75rem;
+      line-height: 1.3;
+      letter-spacing: -0.025em;
+      color: #f0ede6;
+      margin-bottom: 20px;
+    }
+
+    #article-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.62rem;
+      letter-spacing: 0.05em;
+      color: #4a4843;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #1c1b17;
+    }
+    #article-meta-source { display: flex; align-items: center; gap: 6px; }
+
+    /* Content zone: loading → text */
+    #article-content-zone { margin-bottom: 36px; }
+
+    #article-loading {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #article-loading.hidden { display: none; }
+
+    .content-skeleton {
+      border-radius: 2px;
+      background: linear-gradient(90deg, #1c1b17 25%, #252420 50%, #1c1b17 75%);
+      background-size: 400px 100%;
+      animation: shimmer 1.3s infinite linear;
+    }
+
+    #article-body {
+      font-family: 'Newsreader', Georgia, serif;
+      font-weight: 400;
+      font-style: normal;
+      font-size: 1.05rem;
+      line-height: 1.78;
+      color: #b8b3ab;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    #article-body.hidden { display: none; }
+
+    #article-body.fallback {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.78rem;
+      line-height: 1.7;
+      color: #6e6c66;
+      letter-spacing: 0.02em;
+    }
+
+    #article-read-more {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 22px;
+      border: 1px solid #35342f;
+      border-radius: 2px;
+      background: transparent;
+      color: #9b9890;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+    }
+    #article-read-more:hover { border-color: #c0392b; color: #e05a47; background: rgba(192,57,43,0.06); }
+    #article-read-more:focus-visible { outline: 1px solid #c0392b; outline-offset: 2px; }
+    #article-read-more:active { opacity: 0.75; }
+
+    /* ── Filter pills ─────────────────────────────────────────────── */
+    .filter-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 2px;
+      border: 1px solid #35342f;
+      color: #6e6c66;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      cursor: pointer;
+      white-space: nowrap;
+      background: transparent;
+      transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+    }
+    .filter-pill:hover { border-color: #9b9890; color: #e0ddd5; }
+    .filter-pill.active { border-color: #c0392b; color: #e05a47; background: rgba(192,57,43,0.08); }
+    .filter-pill:focus-visible { outline: 1px solid #c0392b; outline-offset: 2px; }
+    .filter-pill:active { opacity: 0.8; }
+
+    .source-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Cards ────────────────────────────────────────────────────── */
+    .card {
+      border-left: 2px solid transparent;
+      padding: 13px 18px 13px 14px;
+      background: #141310;
+      cursor: pointer;
+      transition: background 0.1s ease;
+    }
+    .card:hover { background: #1c1b17; }
+    .card.selected { background: #1c1b17; }
+    .card.selected .card-title { color: #f0b83a; }
+    .card:hover .card-title { color: #f0b83a; }
+
+    .card-meta {
+      font-size: 0.58rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #4a4843;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-source-label { font-weight: 500; color: #6e6c66; }
+
+    .card-title {
+      font-family: 'Newsreader', Georgia, serif;
+      font-weight: 400;
+      font-style: normal;
+      font-size: 0.97rem;
+      line-height: 1.45;
+      letter-spacing: -0.015em;
+      color: #e0ddd5;
+      transition: color 0.1s ease;
+    }
+
+    .card-divider { border: none; border-top: 1px solid #1c1b17; margin: 0; }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .card-animate { opacity: 0; animation: cardIn 0.22s ease forwards; }
+
+    /* Skeleton */
+    @keyframes shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position: 400px 0; }
+    }
+    .skeleton-line {
+      border-radius: 2px;
+      background: linear-gradient(90deg, #1c1b17 25%, #252420 50%, #1c1b17 75%);
+      background-size: 400px 100%;
+      animation: shimmer 1.3s infinite linear;
+    }
+
+    .error-banner {
+      margin: 12px;
+      padding: 10px 12px;
+      background: rgba(192,57,43,0.1);
+      border: 1px solid rgba(192,57,43,0.25);
+      border-radius: 2px;
+      color: #e05a47;
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+    }
+
+    #status-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 16px;
+      border-top: 1px solid #1c1b17;
+      background: #0d0c0a;
+      font-size: 0.56rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #35342f;
+    }
+
+    @keyframes readerIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .reader-animate { animation: readerIn 0.25s ease forwards; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 767px) {
+      #left-panel { flex: 0 0 100%; border-right: none; }
+      #right-panel { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header id="app-header">
+    <div style="padding: 10px 20px; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span class="wordmark">çekirdek</span>
+        <span style="font-size: 0.56rem; letter-spacing: 0.13em; color: #35342f; text-transform: uppercase;">türkiye haberleri</span>
+      </div>
+      <div id="last-updated" style="font-size: 0.56rem; letter-spacing: 0.06em; color: #35342f; text-transform: uppercase;"></div>
+    </div>
+  </header>
+
+  <div id="split-container">
+
+    <!-- Left: news list -->
+    <div id="left-panel">
+      <div id="filter-bar">
+        <button class="filter-pill active" data-filter="all" onclick="setFilter('all', this)">Tümü</button>
+      </div>
+
+      <div id="cards-scroll">
+        <div id="error-state" class="error-banner hidden">Haberler yüklenemedi.</div>
+
+        <div id="skeleton">
+          <div class="card" style="border-left-color:#252420;animation:none;"><div class="card-meta"><div class="skeleton-line" style="width:72px;height:8px;"></div></div><div class="skeleton-line" style="width:95%;height:14px;margin-bottom:5px;"></div><div class="skeleton-line" style="width:68%;height:14px;"></div></div><hr class="card-divider"/>
+          <div class="card" style="border-left-color:#252420;animation:none;"><div class="card-meta"><div class="skeleton-line" style="width:60px;height:8px;"></div></div><div class="skeleton-line" style="width:85%;height:14px;margin-bottom:5px;"></div><div class="skeleton-line" style="width:55%;height:14px;"></div></div><hr class="card-divider"/>
+          <div class="card" style="border-left-color:#252420;animation:none;"><div class="card-meta"><div class="skeleton-line" style="width:80px;height:8px;"></div></div><div class="skeleton-line" style="width:90%;height:14px;margin-bottom:5px;"></div><div class="skeleton-line" style="width:72%;height:14px;"></div></div><hr class="card-divider"/>
+          <div class="card" style="border-left-color:#252420;animation:none;"><div class="card-meta"><div class="skeleton-line" style="width:65px;height:8px;"></div></div><div class="skeleton-line" style="width:88%;height:14px;margin-bottom:5px;"></div><div class="skeleton-line" style="width:60%;height:14px;"></div></div><hr class="card-divider"/>
+          <div class="card" style="border-left-color:#252420;animation:none;"><div class="card-meta"><div class="skeleton-line" style="width:75px;height:8px;"></div></div><div class="skeleton-line" style="width:92%;height:14px;margin-bottom:5px;"></div><div class="skeleton-line" style="width:64%;height:14px;"></div></div><hr class="card-divider"/>
+          <div class="card" style="border-left-color:#252420;animation:none;"><div class="card-meta"><div class="skeleton-line" style="width:58px;height:8px;"></div></div><div class="skeleton-line" style="width:80%;height:14px;margin-bottom:5px;"></div><div class="skeleton-line" style="width:50%;height:14px;"></div></div><hr class="card-divider"/>
+          <div class="card" style="border-left-color:#252420;animation:none;"><div class="card-meta"><div class="skeleton-line" style="width:82px;height:8px;"></div></div><div class="skeleton-line" style="width:87%;height:14px;margin-bottom:5px;"></div><div class="skeleton-line" style="width:70%;height:14px;"></div></div>
+        </div>
+
+        <div id="cards-container" class="hidden"></div>
+      </div>
+
+      <div id="status-bar">
+        <span id="status-count"></span>
+        <span id="status-source"></span>
+      </div>
+    </div>
+
+    <!-- Right: article reader -->
+    <div id="right-panel">
+
+      <div id="panel-empty">
+        <div id="panel-empty-arrow">←</div>
+        <div id="panel-empty-text">Bir haber seçin</div>
+      </div>
+
+      <div id="panel-reader">
+        <div id="reader-topbar">
+          <div id="reader-source-badge">
+            <span id="reader-dot" class="source-dot"></span>
+            <span id="reader-source-name"></span>
+          </div>
+          <div style="flex:1;"></div>
+          <button class="panel-btn" onclick="openCurrentInTab()">↗ Kaynakta oku</button>
+          <button class="panel-btn" onclick="closePanel()">✕</button>
+        </div>
+
+        <div id="reader-content">
+          <div id="article-eyebrow">
+            <span id="article-source-label"></span>
+          </div>
+          <h1 id="article-title"></h1>
+          <div id="article-meta">
+            <div id="article-meta-source">
+              <span id="article-dot" class="source-dot"></span>
+              <span id="article-source-name-meta"></span>
+            </div>
+            <span>·</span>
+            <span id="article-time"></span>
+          </div>
+
+          <!-- Content zone: shows skeleton while loading, then real text -->
+          <div id="article-content-zone">
+            <div id="article-loading">
+              <div class="content-skeleton" style="height:13px;width:100%;margin-bottom:8px;"></div>
+              <div class="content-skeleton" style="height:13px;width:94%;margin-bottom:8px;"></div>
+              <div class="content-skeleton" style="height:13px;width:97%;margin-bottom:8px;"></div>
+              <div class="content-skeleton" style="height:13px;width:88%;margin-bottom:8px;"></div>
+              <div class="content-skeleton" style="height:13px;width:92%;margin-bottom:8px;"></div>
+              <div class="content-skeleton" style="height:13px;width:75%;margin-bottom:24px;"></div>
+              <div class="content-skeleton" style="height:13px;width:98%;margin-bottom:8px;"></div>
+              <div class="content-skeleton" style="height:13px;width:90%;margin-bottom:8px;"></div>
+              <div class="content-skeleton" style="height:13px;width:85%;"></div>
+            </div>
+            <div id="article-body" class="hidden"></div>
+          </div>
+
+          <div style="margin-top: 32px;">
+            <a id="article-read-more" href="#" target="_blank" rel="noopener noreferrer">
+              Kaynakta devam et →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const SOURCES = [
+      { id: 'diken',      label: 'Diken',      color: '#e07b39' },
+      { id: 'birgun',     label: 'BirGün',     color: '#c0392b' },
+      { id: 'cumhuriyet', label: 'Cumhuriyet', color: '#2471a3' },
+      { id: 'sozcu',      label: 'Sözcü',      color: '#1a5276' },
+      { id: 'ntv',        label: 'NTV',        color: '#117a65' },
+    ];
+    const SOURCE_MAP = Object.fromEntries(SOURCES.map(s => [s.id, s]));
+
+    const state = {
+      items: [],
+      lastUpdated: null,
+      activeFilter: 'all',
+      selectedId: null,
+      currentUrl: null,
+      fetchController: null, // abort previous article fetch
+    };
+
+    // ── Utilities ──────────────────────────────────────────────────────────────
+    function timeAgo(iso) {
+      if (!iso) return '';
+      const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+      if (s < 60)    return 'şimdi';
+      if (s < 3600)  return `${Math.floor(s / 60)} dakika önce`;
+      if (s < 86400) return `${Math.floor(s / 3600)} saat önce`;
+      return `${Math.floor(s / 86400)} gün önce`;
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    const isDesktop = () => window.innerWidth >= 768;
+
+    // ── Article content fetching ───────────────────────────────────────────────
+    async function fetchArticleContent(url, rssSummary) {
+      const loadingEl = document.getElementById('article-loading');
+      const bodyEl    = document.getElementById('article-body');
+
+      // Reset: show skeleton, hide body
+      loadingEl.classList.remove('hidden');
+      bodyEl.classList.add('hidden');
+      bodyEl.textContent = '';
+      bodyEl.className = 'hidden';
+
+      // Abort any in-flight fetch
+      if (state.fetchController) state.fetchController.abort();
+      const controller = new AbortController();
+      state.fetchController = controller;
+
+      try {
+        const res = await fetch(
+          '/api/article?url=' + encodeURIComponent(url),
+          { signal: controller.signal }
+        );
+        if (controller.signal.aborted) return;
+
+        const data = await res.json();
+
+        loadingEl.classList.add('hidden');
+        bodyEl.classList.remove('hidden');
+
+        if (data.ok && data.content && data.content.length > 80) {
+          bodyEl.className = 'article-body-text'; // upright, readable
+          bodyEl.id = 'article-body';
+          bodyEl.style.cssText = `
+            font-family: 'Newsreader', Georgia, serif;
+            font-weight: 400;
+            font-style: normal;
+            font-size: 1.05rem;
+            line-height: 1.78;
+            color: #b8b3ab;
+            white-space: pre-wrap;
+            word-break: break-word;
+          `;
+          bodyEl.textContent = data.content;
+        } else {
+          // Fallback to RSS summary
+          showFallback(bodyEl, rssSummary);
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        loadingEl.classList.add('hidden');
+        bodyEl.classList.remove('hidden');
+        showFallback(bodyEl, rssSummary);
+      }
+    }
+
+    function showFallback(el, rssSummary) {
+      el.id = 'article-body';
+      if (rssSummary && rssSummary.length > 10) {
+        el.style.cssText = `
+          font-family: 'Newsreader', Georgia, serif;
+          font-weight: 400;
+          font-style: normal;
+          font-size: 1.05rem;
+          line-height: 1.78;
+          color: #6e6c66;
+          white-space: pre-wrap;
+          word-break: break-word;
+        `;
+        el.textContent = rssSummary;
+      } else {
+        el.style.cssText = `
+          font-family: 'DM Mono', monospace;
+          font-size: 0.7rem;
+          line-height: 1.6;
+          color: #4a4843;
+          letter-spacing: 0.03em;
+        `;
+        el.textContent = 'Bu haber icin icerik yuklenemedi. Kaynakta okumak icin asagidaki baglantiya tiklayin.';
+      }
+    }
+
+    // ── Panel controls ─────────────────────────────────────────────────────────
+    function openArticle(item) {
+      if (!isDesktop()) {
+        window.open(item.link, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      state.selectedId = item.id;
+      state.currentUrl = item.link;
+
+      const src = SOURCE_MAP[item.source] || { label: item.sourceLabel, color: item.sourceColor };
+
+      // Topbar
+      document.getElementById('reader-dot').style.background = src.color;
+      document.getElementById('reader-source-name').textContent = src.label;
+
+      // Header fields
+      document.getElementById('article-source-label').textContent = src.label;
+      document.getElementById('article-title').textContent = item.title;
+      document.getElementById('article-dot').style.background = src.color;
+      document.getElementById('article-source-name-meta').textContent = src.label;
+      document.getElementById('article-time').textContent = timeAgo(item.pubDate);
+      document.getElementById('article-read-more').href = item.link;
+
+      // Scroll to top
+      document.getElementById('reader-content').scrollTop = 0;
+
+      // Show reader panel
+      document.getElementById('panel-empty').style.display = 'none';
+      const reader = document.getElementById('panel-reader');
+      reader.classList.add('open');
+      document.getElementById('reader-content').classList.add('reader-animate');
+      setTimeout(() => document.getElementById('reader-content').classList.remove('reader-animate'), 300);
+
+      // Highlight selected card
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+      const cardEl = document.querySelector(`[data-item-id="${CSS.escape(item.id)}"]`);
+      if (cardEl) cardEl.classList.add('selected');
+
+      // Fetch full article content
+      fetchArticleContent(item.link, item.summary);
+    }
+    window.openArticle = openArticle;
+
+    function closePanel() {
+      if (state.fetchController) { state.fetchController.abort(); state.fetchController = null; }
+      state.selectedId = null;
+      state.currentUrl = null;
+      document.getElementById('panel-reader').classList.remove('open');
+      document.getElementById('panel-empty').style.display = '';
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+    }
+    window.closePanel = closePanel;
+
+    function openCurrentInTab() {
+      if (state.currentUrl) window.open(state.currentUrl, '_blank', 'noopener,noreferrer');
+    }
+    window.openCurrentInTab = openCurrentInTab;
+
+    // ── Filter bar ─────────────────────────────────────────────────────────────
+    function renderFilterBar(presentSources) {
+      const bar = document.getElementById('filter-bar');
+      bar.querySelectorAll('[data-filter]:not([data-filter="all"])').forEach(el => el.remove());
+      presentSources.forEach(src => {
+        const btn = document.createElement('button');
+        btn.className = 'filter-pill';
+        btn.dataset.filter = src.id;
+        btn.innerHTML = `<span class="source-dot" style="background:${src.color};"></span>${escapeHtml(src.label)}`;
+        btn.addEventListener('click', () => setFilter(src.id, btn));
+        bar.appendChild(btn);
+      });
+    }
+
+    function setFilter(sourceId, el) {
+      state.activeFilter = sourceId;
+      document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+      if (el) el.classList.add('active');
+      renderCards();
+    }
+    window.setFilter = setFilter;
+
+    // ── Cards ──────────────────────────────────────────────────────────────────
+    function renderCards() {
+      const container = document.getElementById('cards-container');
+      const { items, activeFilter, selectedId } = state;
+
+      const filtered = activeFilter === 'all'
+        ? items
+        : items.filter(i => i.source === activeFilter);
+
+      const srcLabel = activeFilter !== 'all' ? SOURCE_MAP[activeFilter]?.label ?? '' : 'tüm kaynaklar';
+      document.getElementById('status-count').textContent = `${filtered.length} haber`;
+      document.getElementById('status-source').textContent = srcLabel;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div style="padding:40px 16px;text-align:center;color:#35342f;font-size:0.65rem;letter-spacing:0.06em;text-transform:uppercase;">Haber bulunamadı</div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map((item, idx) => {
+        const src = SOURCE_MAP[item.source] || { label: item.sourceLabel, color: item.sourceColor };
+        const delay = Math.min(idx * 15, 280);
+        const selected = item.id === selectedId ? ' selected' : '';
+        return `${idx > 0 ? '<hr class="card-divider"/>' : ''}
+<article
+  class="card card-animate${selected}"
+  data-item-id="${escapeHtml(item.id)}"
+  style="border-left-color:${src.color};animation-delay:${delay}ms;"
+  tabindex="0"
+  role="button"
+  aria-label="${escapeHtml(item.title)}"
+>
+  <div class="card-meta">
+    <span class="card-source-label">${escapeHtml(src.label)}</span>
+    <span>${timeAgo(item.pubDate)}</span>
+  </div>
+  <div class="card-title">${escapeHtml(item.title)}</div>
+</article>`;
+      }).join('');
+
+      container.querySelectorAll('.card').forEach((el, idx) => {
+        const item = filtered[idx];
+        el.addEventListener('click', () => openArticle(item));
+        el.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openArticle(item); }
+        });
+      });
+    }
+
+    // ── Fetch news ─────────────────────────────────────────────────────────────
+    async function fetchNews() {
+      try {
+        const res = await fetch('/api/news');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        state.items = data.items ?? [];
+        state.lastUpdated = data.lastUpdated;
+
+        document.getElementById('skeleton').classList.add('hidden');
+        document.getElementById('cards-container').classList.remove('hidden');
+        document.getElementById('error-state').classList.add('hidden');
+
+        const presentIds = [...new Set(state.items.map(i => i.source))];
+        renderFilterBar(SOURCES.filter(s => presentIds.includes(s.id)));
+
+        if (state.activeFilter !== 'all' && !presentIds.includes(state.activeFilter)) {
+          state.activeFilter = 'all';
+        }
+        document.querySelectorAll('.filter-pill').forEach(p => {
+          p.classList.toggle('active', p.dataset.filter === state.activeFilter);
+        });
+
+        renderCards();
+
+        if (data.lastUpdated) {
+          const d = new Date(data.lastUpdated);
+          document.getElementById('last-updated').textContent =
+            `güncellendi ${d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+      } catch (err) {
+        console.error('fetchNews:', err);
+        document.getElementById('skeleton').classList.add('hidden');
+        document.getElementById('error-state').classList.remove('hidden');
+      }
+    }
+
+    fetchNews();
+    setInterval(fetchNews, 20 * 60 * 1000);
+    setInterval(() => { if (state.items.length > 0) renderCards(); }, 60 * 1000);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && state.selectedId) closePanel();
+    });
+  </script>
+</body>
+</html>
