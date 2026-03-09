@@ -533,6 +533,16 @@
       fetchController: null, // abort previous article fetch
     };
 
+    // Set this to your Render backend URL when running on GitHub Pages.
+    // Keep empty string for same-origin local development.
+    const API_BASE_URL = window.location.hostname.includes('github.io')
+      ? 'https://YOUR-RENDER-SERVICE.onrender.com'
+      : '';
+
+    function apiUrl(path) {
+      return `${API_BASE_URL}${path}`;
+    }
+
     // ── Utilities ──────────────────────────────────────────────────────────────
     function timeAgo(iso) {
       if (!iso) return '';
@@ -569,7 +579,7 @@
 
       try {
         const res = await fetch(
-          '/api/article?url=' + encodeURIComponent(url),
+          apiUrl('/api/article?url=') + encodeURIComponent(url),
           { signal: controller.signal }
         );
         if (controller.signal.aborted) return;
@@ -763,7 +773,7 @@
     // ── Fetch news ─────────────────────────────────────────────────────────────
     async function fetchNews() {
       try {
-        const res = await fetch('/api/news');
+        const res = await fetch(apiUrl('/api/news'));
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 

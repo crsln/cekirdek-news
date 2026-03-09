@@ -8,6 +8,17 @@ import { SOURCES, REFRESH_INTERVAL_MS, MAX_ITEMS_PER_SOURCE } from './sources.mj
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+const PORT = Number(process.env.PORT) || 3001;
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 
 const FETCH_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -210,6 +221,6 @@ app.get('/api/news', async (_req, res) => {
 
 app.use(express.static(__dirname));
 
-app.listen(3001, () => {
-  console.log('Server running at http://localhost:3001');
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
