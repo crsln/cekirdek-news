@@ -5,6 +5,7 @@ import { JSDOM } from 'jsdom';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import { SOURCES, REFRESH_INTERVAL_MS, MAX_ITEMS_PER_SOURCE } from './sources.mjs';
+import rateLimit from 'express-rate-limit';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -19,6 +20,14 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
+
+app.use('/api/', rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, reason: 'rate_limited' },
+}));
 
 const FETCH_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -157,6 +166,7 @@ function extractSummary(text) {
 // ── Article content extraction cache ──────────────────────────────────────────
 const articleCache = new Map(); // url → { ok, content, excerpt }
 const MAX_ARTICLE_CACHE = 300;
+const inFlight = new Map(); // url → Promise — dedup concurrent article fetches
 
 app.get('/api/article', async (req, res) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -166,51 +176,79 @@ app.get('/api/article', async (req, res) => {
 
   if (articleCache.has(url)) return res.json(articleCache.get(url));
 
+  // Dedup: if another request is already fetching this URL, wait for it
+  if (inFlight.has(url)) {
+    try {
+      const result = await inFlight.get(url);
+      return res.json(result);
+    } catch {
+      return res.json({ ok: false, reason: 'error' });
+    }
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      const response = await fetch(url, {
+        headers: FETCH_HEADERS,
+        redirect: 'follow',
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!response.ok) {
+        return { ok: false, reason: `http_${response.status}` };
+      }
+
+      // Validate Content-Type before parsing
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
+        return { ok: false, reason: 'not_html' };
+      }
+
+      const html = await response.text();
+      const finalUrl = response.url;
+
+      const dom = new JSDOM(html, { url: finalUrl });
+      const reader = new Readability(dom.window.document, {
+        charThreshold: 100,
+      });
+      const article = reader.parse();
+
+      if (!article || !article.textContent || article.textContent.trim().length < 80) {
+        return { ok: false, reason: 'no_content' };
+      }
+
+      const summary = extractSummary(
+        article.textContent.replace(/\n{3,}/g, '\n\n').trim()
+      );
+
+      if (!summary || summary.length < 60) {
+        return { ok: false, reason: 'no_content' };
+      }
+
+      const result = { ok: true, content: summary, excerpt: article.excerpt ?? '' };
+
+      if (articleCache.size >= MAX_ARTICLE_CACHE) {
+        articleCache.delete(articleCache.keys().next().value);
+      }
+      articleCache.set(url, result);
+
+      return result;
+    } catch (err) {
+      const reason = err.name === 'TimeoutError' ? 'timeout' : 'error';
+      console.error(`[article] ${reason}: ${url} — ${err.message}`);
+      return { ok: false, reason };
+    } finally {
+      inFlight.delete(url);
+    }
+  })();
+
+  inFlight.set(url, fetchPromise);
+
   try {
-    const response = await fetch(url, {
-      headers: FETCH_HEADERS,
-      redirect: 'follow',
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      return res.json({ ok: false, reason: `http_${response.status}` });
-    }
-
-    const html = await response.text();
-    const finalUrl = response.url; // after redirects
-
-    const dom = new JSDOM(html, { url: finalUrl });
-    const reader = new Readability(dom.window.document, {
-      charThreshold: 100,
-    });
-    const article = reader.parse();
-
-    if (!article || !article.textContent || article.textContent.trim().length < 80) {
-      return res.json({ ok: false, reason: 'no_content' });
-    }
-
-    const summary = extractSummary(
-      article.textContent.replace(/\n{3,}/g, '\n\n').trim()
-    );
-
-    if (!summary || summary.length < 60) {
-      return res.json({ ok: false, reason: 'no_content' });
-    }
-
-    const result = { ok: true, content: summary, excerpt: article.excerpt ?? '' };
-
-    // LRU-style: evict oldest if too large
-    if (articleCache.size >= MAX_ARTICLE_CACHE) {
-      articleCache.delete(articleCache.keys().next().value);
-    }
-    articleCache.set(url, result);
-
+    const result = await fetchPromise;
     res.json(result);
-  } catch (err) {
-    const reason = err.name === 'TimeoutError' ? 'timeout' : 'error';
-    console.error(`[article] ${reason}: ${url} — ${err.message}`);
-    res.json({ ok: false, reason });
+  } catch {
+    res.json({ ok: false, reason: 'error' });
   }
 });
 
