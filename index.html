@@ -81,11 +81,6 @@
       color: #f0ede6;
       font-size: 2.2rem;
     }
-    .mobile-wordmark { display: none; }
-    @media (max-width: 767px) {
-      .desktop-wordmark { display: none; }
-      .mobile-wordmark { display: inline; }
-    }
 
     /* ── Split layout ─────────────────────────────────────────────── */
     #split-container { flex: 1; display: flex; overflow: hidden; min-height: 0; }
@@ -427,8 +422,7 @@
   <header id="app-header">
     <div style="padding: 10px 20px; display: flex; align-items: center; justify-content: space-between;">
       <div style="display: flex; align-items: baseline; gap: 10px;">
-        <span class="wordmark desktop-wordmark">çekirdek</span>
-        <span class="wordmark mobile-wordmark">ç.</span>
+        <span class="wordmark">çekirdek</span>
         <span style="font-size: 0.56rem; letter-spacing: 0.13em; color: #35342f; text-transform: uppercase;">sade haberler</span>
       </div>
       <div id="last-updated" style="font-size: 0.56rem; letter-spacing: 0.06em; color: #35342f; text-transform: uppercase;"></div>
