@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Çekirdek — Türkiye Haberleri</title>
+  <title>Çekirdek — Sade Haberler</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -96,6 +96,7 @@
       flex-shrink: 0;
       display: flex;
       align-items: center;
+      flex-wrap: nowrap;
       gap: 6px;
       padding: 10px 16px;
       border-bottom: 1px solid #1c1b17;
@@ -104,6 +105,23 @@
     }
     #filter-bar::-webkit-scrollbar { display: none; }
     #filter-bar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    @media (max-width: 767px) {
+      #filter-bar {
+        flex-wrap: wrap;
+        overflow-x: visible;
+        max-height: 200px;
+        transition: max-height 0.25s ease, padding 0.25s ease, opacity 0.2s ease, border-color 0.25s ease;
+      }
+      #filter-bar.filter-hidden {
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        overflow: hidden;
+        opacity: 0;
+        border-bottom-color: transparent;
+      }
+    }
 
     #cards-scroll { flex: 1; overflow-y: auto; min-height: 0; }
     #cards-scroll::-webkit-scrollbar { width: 4px; }
@@ -429,7 +447,7 @@
     <div style="padding: 10px 20px; display: flex; align-items: center; justify-content: space-between;">
       <div style="display: flex; align-items: baseline; gap: 10px;">
         <span class="wordmark">çekirdek</span>
-        <span style="font-size: 0.56rem; letter-spacing: 0.13em; color: #35342f; text-transform: uppercase;">türkiye haberleri</span>
+        <span style="font-size: 0.56rem; letter-spacing: 0.13em; color: #35342f; text-transform: uppercase;">sade haberler</span>
       </div>
       <div id="last-updated" style="font-size: 0.56rem; letter-spacing: 0.06em; color: #35342f; text-transform: uppercase;"></div>
     </div>
@@ -462,6 +480,7 @@
       <div id="status-bar">
         <span id="status-count"></span>
         <span id="status-source"></span>
+        <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener noreferrer" style="color:#35342f;text-decoration:none;letter-spacing:0.06em;font-size:0.56rem;text-transform:uppercase;" onmouseover="this.style.color='#6e6c66'" onmouseout="this.style.color='#35342f'">CC BY-NC 4.0</a>
       </div>
     </div>
 
@@ -724,6 +743,22 @@
       if (state.currentUrl) window.open(state.currentUrl, '_blank', 'noopener,noreferrer');
     }
     window.openCurrentInTab = openCurrentInTab;
+
+    // ── Hide filter bar on scroll down (mobile only) ───────────────────────────
+    (function () {
+      let lastY = 0;
+      document.getElementById('cards-scroll').addEventListener('scroll', function () {
+        if (isDesktop()) return;
+        const y = this.scrollTop;
+        const bar = document.getElementById('filter-bar');
+        if (y > lastY && y > 40) {
+          bar.classList.add('filter-hidden');
+        } else {
+          bar.classList.remove('filter-hidden');
+        }
+        lastY = y;
+      }, { passive: true });
+    })();
 
     // ── Filter bar ─────────────────────────────────────────────────────────────
     function renderFilterBar(presentSources) {

@@ -98,4 +98,10 @@ Built with [Claude Code](https://claude.ai/code) (Anthropic) and [Codex](https:/
 
 ---
 
+## 📄 License
+
+[CC BY-NC 4.0](LICENSE) — free to use and adapt with attribution, non-commercial only.
+
+---
+
 **Last updated:** March 2026
