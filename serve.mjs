@@ -158,27 +158,62 @@ function extractSummary(text) {
 const articleCache = new Map(); // url → { ok, content, excerpt }
 const MAX_ARTICLE_CACHE = 300;
 
+// Build domain allowlist from configured sources
+const ALLOWED_DOMAINS = new Set(
+  SOURCES.map(s => new URL(s.url).hostname.replace(/^www\./, ''))
+);
+
+function isAllowedUrl(raw) {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+    const host = u.hostname.replace(/^www\./, '');
+    return ALLOWED_DOMAINS.has(host);
+  } catch {
+    return false;
+  }
+}
+
 app.get('/api/article', async (req, res) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
   const url = req.query.url;
   if (!url) return res.status(400).json({ ok: false, reason: 'missing url' });
+  if (!isAllowedUrl(url)) return res.status(403).json({ ok: false, reason: 'domain_not_allowed' });
 
   if (articleCache.has(url)) return res.json(articleCache.get(url));
 
   try {
     const response = await fetch(url, {
       headers: FETCH_HEADERS,
-      redirect: 'follow',
+      redirect: 'manual',
       signal: AbortSignal.timeout(10000),
     });
 
-    if (!response.ok) {
-      return res.json({ ok: false, reason: `http_${response.status}` });
+    // Handle redirects: validate target is also an allowed domain
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get('location');
+      if (!location || !isAllowedUrl(new URL(location, url).href)) {
+        return res.json({ ok: false, reason: 'redirect_blocked' });
+      }
+      // Re-fetch the redirect target
+      const redirected = await fetch(new URL(location, url).href, {
+        headers: FETCH_HEADERS,
+        redirect: 'manual',
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!redirected.ok) {
+        return res.json({ ok: false, reason: `http_${redirected.status}` });
+      }
+      var html = await redirected.text();
+      var finalUrl = new URL(location, url).href;
+    } else {
+      if (!response.ok) {
+        return res.json({ ok: false, reason: `http_${response.status}` });
+      }
+      var html = await response.text();
+      var finalUrl = response.url;
     }
-
-    const html = await response.text();
-    const finalUrl = response.url; // after redirects
 
     const dom = new JSDOM(html, { url: finalUrl });
     const reader = new Readability(dom.window.document, {
