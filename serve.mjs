@@ -137,8 +137,14 @@ async function refreshAllFeeds() {
   console.log(`[refresh] done — ${allItems.length} items cached`);
 }
 
-let firstRefresh = refreshAllFeeds();
-setInterval(refreshAllFeeds, REFRESH_INTERVAL_MS);
+let firstRefreshDone = false;
+let firstRefreshPromise = refreshAllFeeds()
+  .then(() => { firstRefreshDone = true; })
+  .catch(err => {
+    console.error('[refresh] initial load failed:', err.message);
+    firstRefreshDone = true; // allow serving empty cache rather than hanging
+  });
+const refreshTimer = setInterval(refreshAllFeeds, REFRESH_INTERVAL_MS);
 
 // ── Extractive summarization ───────────────────────────────────────────────────
 function extractSummary(text) {
@@ -216,7 +222,7 @@ app.get('/api/article', async (req, res) => {
 
 // ── News feed endpoint ─────────────────────────────────────────────────────────
 app.get('/api/news', async (_req, res) => {
-  await firstRefresh;
+  if (!firstRefreshDone) await firstRefreshPromise;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.json({
     items: cache.items,
@@ -227,6 +233,21 @@ app.get('/api/news', async (_req, res) => {
 
 app.use(express.static(__dirname));
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// Graceful shutdown
+function shutdown(signal) {
+  console.log(`[shutdown] ${signal} received, closing server...`);
+  clearInterval(refreshTimer);
+  server.close(() => {
+    console.log('[shutdown] server closed');
+    process.exit(0);
+  });
+  // Force exit after 10s if connections don't drain
+  setTimeout(() => process.exit(1), 10000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
