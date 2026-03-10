@@ -408,6 +408,17 @@
     @media (max-width: 767px) {
       #left-panel { flex: 0 0 100%; border-right: none; }
       #right-panel { display: none; }
+      #right-panel.mobile-open {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: #0d0c0a;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+      #mobile-back-btn { display: flex !important; }
+      #reader-close-btn { display: none !important; }
     }
   </style>
 </head>
@@ -464,13 +475,14 @@
 
       <div id="panel-reader">
         <div id="reader-topbar">
+          <button id="mobile-back-btn" class="panel-btn" style="display:none" onclick="closeMobileReader()">← Geri</button>
           <div id="reader-source-badge">
             <span id="reader-dot" class="source-dot"></span>
             <span id="reader-source-name"></span>
           </div>
           <div style="flex:1;"></div>
           <button class="panel-btn" onclick="openCurrentInTab()">↗ Kaynakta oku</button>
-          <button class="panel-btn" onclick="closePanel()">✕</button>
+          <button id="reader-close-btn" class="panel-btn" onclick="closePanel()">✕</button>
         </div>
 
         <div id="reader-content">
@@ -647,12 +659,14 @@
     }
 
     // ── Panel controls ─────────────────────────────────────────────────────────
-    function openArticle(item) {
-      if (!isDesktop()) {
-        window.open(item.link, '_blank', 'noopener,noreferrer');
-        return;
-      }
+    function closeMobileReader() {
+      document.getElementById('right-panel').classList.remove('mobile-open');
+      document.getElementById('left-panel').style.display = '';
+      closePanel();
+    }
+    window.closeMobileReader = closeMobileReader;
 
+    function openArticle(item) {
       state.selectedId = item.id;
       state.currentUrl = item.link;
 
@@ -679,6 +693,12 @@
       reader.classList.add('open');
       document.getElementById('reader-content').classList.add('reader-animate');
       setTimeout(() => document.getElementById('reader-content').classList.remove('reader-animate'), 300);
+
+      // Mobile: show reader full-screen
+      if (!isDesktop()) {
+        document.getElementById('right-panel').classList.add('mobile-open');
+        document.getElementById('left-panel').style.display = 'none';
+      }
 
       // Highlight selected card
       document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
