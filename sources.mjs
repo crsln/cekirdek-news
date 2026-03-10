@@ -34,6 +34,41 @@ export const SOURCES = [
     url: 'https://www.ntv.com.tr/dunya.rss',
     via: 'direct',
   },
+  {
+    id: 'bianet',
+    label: 'Bianet',
+    color: '#b07d12',
+    url: 'https://bianet.org/bianet.rss',
+    via: 'direct',
+  },
+  {
+    id: 'bbc',
+    label: 'BBC Türkçe',
+    color: '#0d6e9e',
+    url: 'https://feeds.bbci.co.uk/turkce/rss.xml',
+    via: 'direct',
+  },
+  {
+    id: 'dw',
+    label: 'DW Türkçe',
+    color: '#5c6b7a',
+    url: 'https://rss.dw.com/xml/rss-tur-all',
+    via: 'direct',
+  },
+  {
+    id: 'sputnik',
+    label: 'Sputnik TR',
+    color: '#7a2626',
+    url: 'https://sputniknews.com.tr/export/rss2/archive/index.xml',
+    via: 'direct',
+  },
+  {
+    id: 'hurriyet',
+    label: 'Hürriyet',
+    color: '#4a2d8b',
+    url: 'https://www.hurriyet.com.tr/rss/anasayfa',
+    via: 'direct',
+  },
 ];
 
 export const REFRESH_INTERVAL_MS = 20 * 60 * 1000; // 20 minutes

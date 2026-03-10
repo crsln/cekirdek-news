@@ -52,6 +52,10 @@ function cleanSummary(raw, sourceId) {
     s = s.replace(/The post .+? appeared first on .+?\.?$/s, '');    // full WordPress postfix
   }
 
+  if (sourceId === 'bianet') {
+    s = s.replace(/\s*\([A-ZÇĞİÖŞÜ]{2,3}\)\s*$/gm, ''); // strip author initials like (NÖ), (TY)
+  }
+
   if (sourceId === 'medyascope') {
     s = s.replace(/\bMedyascope\b/gi, '');                           // remove brand noise
     s = s.replace(/appeared first on\s*\.?/gi, '');                  // WordPress artifact
@@ -76,7 +80,9 @@ async function fetchSource(source) {
   try {
     const feed = await parser.parseURL(source.url);
     return feed.items.slice(0, MAX_ITEMS_PER_SOURCE).map(item => {
-      const rawSnippet = item.contentSnippet || item.summary || item['content:encodedSnippet'] || '';
+      const s1 = item.contentSnippet || '';
+      const s2 = item['content:encodedSnippet'] || item.summary || '';
+      const rawSnippet = s1.length >= s2.length ? s1 : s2;
       const summary = cleanSummary(rawSnippet, source.id);
 
       // Pre-populate article cache if RSS snippet is rich enough (saves a fetch on click)
