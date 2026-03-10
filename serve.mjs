@@ -137,8 +137,15 @@ async function refreshAllFeeds() {
   console.log(`[refresh] done — ${allItems.length} items cached`);
 }
 
-let firstRefresh = refreshAllFeeds();
-setInterval(refreshAllFeeds, REFRESH_INTERVAL_MS);
+const firstRefresh = refreshAllFeeds().catch(err => {
+  console.error('[startup] initial feed fetch failed:', err.message);
+});
+
+setInterval(() => {
+  refreshAllFeeds().catch(err => {
+    console.error('[refresh] interval fetch failed:', err.message);
+  });
+}, REFRESH_INTERVAL_MS);
 
 // ── Extractive summarization ───────────────────────────────────────────────────
 function extractSummary(text) {
@@ -227,6 +234,17 @@ app.get('/api/news', async (_req, res) => {
 
 app.use(express.static(__dirname));
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+function shutdown(signal) {
+  console.log(`[shutdown] received ${signal}, closing server…`);
+  server.close(() => {
+    console.log('[shutdown] HTTP server closed');
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
