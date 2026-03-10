@@ -38,7 +38,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html { height: 100%; height: 100dvh; overflow: hidden; }
+    html { height: 100%; overflow: hidden; background-color: #0d0c0a; }
     body { height: 100%; overflow: hidden; }
 
     body {
@@ -131,7 +131,7 @@
       .source-dot { width: 4px; height: 4px; }
     }
 
-    #cards-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+    #cards-scroll { flex: 1; overflow-y: auto; min-height: 0; padding-bottom: env(safe-area-inset-bottom); }
     #cards-scroll::-webkit-scrollbar { width: 4px; }
     #cards-scroll::-webkit-scrollbar-track { background: #0d0c0a; }
     #cards-scroll::-webkit-scrollbar-thumb { background: #252420; border-radius: 2px; }
