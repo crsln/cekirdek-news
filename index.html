@@ -177,18 +177,6 @@
       background: #141310;
     }
 
-    #reader-source-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-      font-size: 0.6rem;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
-      color: #6e6c66;
-      font-weight: 500;
-    }
-
     .panel-btn {
       flex-shrink: 0;
       display: inline-flex;
@@ -300,27 +288,6 @@
       color: #6e6c66;
       letter-spacing: 0.02em;
     }
-
-    #article-read-more {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 11px 22px;
-      border: 1px solid #35342f;
-      border-radius: 2px;
-      background: transparent;
-      color: #9b9890;
-      font-family: 'DM Mono', monospace;
-      font-size: 0.68rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      text-decoration: none;
-      cursor: pointer;
-      transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
-    }
-    #article-read-more:hover { border-color: #c0392b; color: #e05a47; background: rgba(192,57,43,0.06); }
-    #article-read-more:focus-visible { outline: 1px solid #c0392b; outline-offset: 2px; }
-    #article-read-more:active { opacity: 0.75; }
 
     /* ── Filter pills ─────────────────────────────────────────────── */
     .filter-pill {
@@ -510,10 +477,6 @@
       <div id="panel-reader">
         <div id="reader-topbar">
           <button id="mobile-back-btn" class="panel-btn" style="display:none" onclick="closeMobileReader()">← Geri</button>
-          <div id="reader-source-badge">
-            <span id="reader-dot" class="source-dot"></span>
-            <span id="reader-source-name"></span>
-          </div>
           <div style="flex:1;"></div>
           <button class="panel-btn" onclick="openCurrentInTab()">↗ Kaynakta oku</button>
           <button id="reader-close-btn" class="panel-btn" onclick="closePanel()">✕</button>
@@ -549,11 +512,6 @@
             <div id="article-body" class="hidden"></div>
           </div>
 
-          <div style="margin-top: 32px;">
-            <a id="article-read-more" href="#" target="_blank" rel="noopener noreferrer">
-              Kaynakta devam et →
-            </a>
-          </div>
         </div>
       </div>
     </div>
@@ -688,7 +646,7 @@
           color: #4a4843;
           letter-spacing: 0.03em;
         `;
-        el.textContent = 'Bu haber icin icerik yuklenemedi. Kaynakta okumak icin asagidaki baglantiya tiklayin.';
+        el.textContent = 'Bu haber icin icerik yuklenemedi. Kaynakta okumak icin yukardaki baglantiya tiklayin.';
       }
     }
 
@@ -706,17 +664,12 @@
 
       const src = SOURCE_MAP[item.source] || { label: item.sourceLabel, color: item.sourceColor };
 
-      // Topbar
-      document.getElementById('reader-dot').style.background = src.color;
-      document.getElementById('reader-source-name').textContent = src.label;
-
       // Header fields
       document.getElementById('article-source-label').textContent = src.label;
       document.getElementById('article-title').textContent = item.title;
       document.getElementById('article-dot').style.background = src.color;
       document.getElementById('article-source-name-meta').textContent = src.label;
       document.getElementById('article-time').textContent = timeAgo(item.pubDate);
-      document.getElementById('article-read-more').href = item.link;
 
       // Scroll to top
       document.getElementById('reader-content').scrollTop = 0;
