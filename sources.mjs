@@ -16,7 +16,7 @@ export const SOURCES = [
   {
     id: 'cumhuriyet',
     label: 'Cumhuriyet',
-    color: '#2471a3',
+    color: '#c0392b',
     url: 'https://www.cumhuriyet.com.tr/rss',
     via: 'direct',
   },
