@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0d0c0a" />
   <title>Çekirdek — Sade Haberler</title>
+  <meta name="description" content="Çekirdek: Türkiye'nin önde gelen kaynaklarından sade, reklamsız haber akışı. Diken, Medyascope, Cumhuriyet, BBC Türkçe ve daha fazlası." />
+  <meta property="og:title" content="Çekirdek — Sade Haberler" />
+  <meta property="og:description" content="Türkiye'nin önde gelen kaynaklarından sade, reklamsız haber akışı." />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="tr_TR" />
+  <link rel="canonical" href="https://jeepso.github.io/cekirdek-news/" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -429,7 +435,7 @@
     </div>
   </header>
 
-  <div id="split-container">
+  <main id="split-container">
 
     <!-- Left: news list -->
     <div id="left-panel">
@@ -470,10 +476,10 @@
 
       <div id="panel-reader">
         <div id="reader-topbar">
-          <button id="mobile-back-btn" class="panel-btn" style="display:none" onclick="closeMobileReader()">← Geri</button>
+          <button id="mobile-back-btn" class="panel-btn" style="display:none" onclick="closeMobileReader()" aria-label="Geri dön">← Geri</button>
           <div style="flex:1;"></div>
           <button class="panel-btn" onclick="openCurrentInTab()">↗ Kaynakta oku</button>
-          <button id="reader-close-btn" class="panel-btn" onclick="closePanel()">✕</button>
+          <button id="reader-close-btn" class="panel-btn" onclick="closePanel()" aria-label="Kapat">✕</button>
         </div>
 
         <div id="reader-content">
@@ -510,7 +516,7 @@
       </div>
     </div>
 
-  </div>
+  </main>
 
   <script>
     const SOURCES = [
