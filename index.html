@@ -121,6 +121,12 @@
         opacity: 0;
         border-bottom-color: transparent;
       }
+      .filter-pill {
+        padding: 2px 6px;
+        font-size: 0.52rem;
+        gap: 3px;
+      }
+      .source-dot { width: 4px; height: 4px; }
     }
 
     #cards-scroll { flex: 1; overflow-y: auto; min-height: 0; }
@@ -751,12 +757,11 @@
         if (isDesktop()) return;
         const y = this.scrollTop;
         const bar = document.getElementById('filter-bar');
-        if (y > lastY && y > 40) {
+        if (y > 10) {
           bar.classList.add('filter-hidden');
         } else {
           bar.classList.remove('filter-hidden');
         }
-        lastY = y;
       }, { passive: true });
     })();
 
