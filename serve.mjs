@@ -5,11 +5,25 @@ import { JSDOM } from 'jsdom';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import { SOURCES, REFRESH_INTERVAL_MS, MAX_ITEMS_PER_SOURCE } from './sources.mjs';
+import helmet from 'helmet';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      connectSrc: ["'self'", "https://cekirdek-news.onrender.com"],
+      imgSrc: ["'self'", "data:"],
+    },
+  },
+}));
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
@@ -225,7 +239,7 @@ app.get('/api/news', async (_req, res) => {
   });
 });
 
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
