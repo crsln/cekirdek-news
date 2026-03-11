@@ -390,6 +390,15 @@
       text-transform: uppercase;
       color: #35342f;
     }
+    .license-link {
+      color: #35342f;
+      text-decoration: none;
+      letter-spacing: 0.06em;
+      font-size: 0.56rem;
+      text-transform: uppercase;
+      transition: color 0.12s ease;
+    }
+    .license-link:hover { color: #6e6c66; }
 
     @keyframes readerIn {
       from { opacity: 0; transform: translateY(8px); }
@@ -434,7 +443,7 @@
     <!-- Left: news list -->
     <div id="left-panel">
       <div id="filter-bar">
-        <button class="filter-pill active" data-filter="all" onclick="setFilter('all', this)">Tümü</button>
+        <button id="filter-all-btn" class="filter-pill active" data-filter="all">Tümü</button>
       </div>
 
       <div id="cards-scroll">
@@ -456,7 +465,7 @@
       <div id="status-bar">
         <span id="status-count"></span>
         <span id="status-source"></span>
-        <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener noreferrer" style="color:#35342f;text-decoration:none;letter-spacing:0.06em;font-size:0.56rem;text-transform:uppercase;" onmouseover="this.style.color='#6e6c66'" onmouseout="this.style.color='#35342f'">CC BY-NC 4.0</a>
+        <a class="license-link" href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener noreferrer">CC BY-NC 4.0</a>
       </div>
     </div>
 
@@ -470,10 +479,10 @@
 
       <div id="panel-reader">
         <div id="reader-topbar">
-          <button id="mobile-back-btn" class="panel-btn" style="display:none" onclick="closeMobileReader()">← Geri</button>
+          <button id="mobile-back-btn" class="panel-btn" style="display:none">← Geri</button>
           <div style="flex:1;"></div>
-          <button class="panel-btn" onclick="openCurrentInTab()">↗ Kaynakta oku</button>
-          <button id="reader-close-btn" class="panel-btn" onclick="closePanel()">✕</button>
+          <button id="reader-open-source-btn" class="panel-btn">↗ Kaynakta oku</button>
+          <button id="reader-close-btn" class="panel-btn">✕</button>
         </div>
 
         <div id="reader-content">
@@ -743,6 +752,17 @@
       renderCards();
     }
     window.setFilter = setFilter;
+
+    document.getElementById('filter-bar').addEventListener('click', function (event) {
+      const btn = event.target.closest('.filter-pill');
+      if (!btn || !this.contains(btn)) return;
+      const sourceId = btn.dataset.filter;
+      if (!sourceId) return;
+      setFilter(sourceId, btn);
+    });
+    document.getElementById('mobile-back-btn').addEventListener('click', closeMobileReader);
+    document.getElementById('reader-open-source-btn').addEventListener('click', openCurrentInTab);
+    document.getElementById('reader-close-btn').addEventListener('click', closePanel);
 
     // ── Cards ──────────────────────────────────────────────────────────────────
     function renderCards() {
