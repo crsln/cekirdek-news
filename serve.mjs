@@ -7,6 +7,7 @@ import path from 'path';
 import { isIP } from 'node:net';
 import { SOURCES, REFRESH_INTERVAL_MS, MAX_ITEMS_PER_SOURCE } from './sources.mjs';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -58,6 +59,14 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+app.use('/api/', rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, reason: 'rate_limited' },
+}));
 
 const FETCH_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -203,6 +212,8 @@ function extractSummary(text) {
 // ── Article content extraction cache ──────────────────────────────────────────
 const articleCache = new Map(); // url → { ok, content, excerpt }
 const MAX_ARTICLE_CACHE = 300;
+const MAX_ARTICLE_HTML_BYTES = 5_000_000;
+const inFlightArticleFetches = new Map(); // url → Promise<{ok:boolean, reason?:string}>
 
 // Additional article hosts not directly visible from RSS feed hostnames.
 const EXTRA_ALLOWED_DOMAINS_BY_SOURCE = {
@@ -276,7 +287,25 @@ async function fetchArticleHtml(initialUrl) {
     }
 
     if (!response.ok) return { ok: false, reason: `http_${response.status}` };
-    return { ok: true, html: await response.text(), finalUrl: currentUrl };
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (
+      !contentType.includes('text/html') &&
+      !contentType.includes('application/xhtml+xml')
+    ) {
+      return { ok: false, reason: 'not_html' };
+    }
+
+    const contentLengthHeader = response.headers.get('content-length');
+    const contentLength = contentLengthHeader ? Number.parseInt(contentLengthHeader, 10) : NaN;
+    if (Number.isFinite(contentLength) && contentLength > MAX_ARTICLE_HTML_BYTES) {
+      return { ok: false, reason: 'too_large' };
+    }
+
+    const html = await response.text();
+    if (Buffer.byteLength(html, 'utf8') > MAX_ARTICLE_HTML_BYTES) {
+      return { ok: false, reason: 'too_large' };
+    }
+    return { ok: true, html, finalUrl: currentUrl };
   }
 
   return { ok: false, reason: 'too_many_redirects' };
@@ -290,50 +319,65 @@ app.get('/api/article', async (req, res) => {
   if (!isAllowedUrl(url)) return res.status(403).json({ ok: false, reason: 'domain_not_allowed' });
 
   if (articleCache.has(url)) return res.json(articleCache.get(url));
-
-  try {
-    const fetched = await fetchArticleHtml(url);
-    if (!fetched.ok) {
-      if (fetched.reason === 'redirect_blocked') {
-        return res.status(403).json({ ok: false, reason: fetched.reason });
-      }
-      return res.json({ ok: false, reason: fetched.reason });
+  if (inFlightArticleFetches.has(url)) {
+    const result = await inFlightArticleFetches.get(url);
+    if (!result.ok && result.reason === 'redirect_blocked') {
+      return res.status(403).json(result);
     }
-
-    const { html, finalUrl } = fetched;
-
-    const dom = new JSDOM(html, { url: finalUrl });
-    const reader = new Readability(dom.window.document, {
-      charThreshold: 100,
-    });
-    const article = reader.parse();
-
-    if (!article || !article.textContent || article.textContent.trim().length < 80) {
-      return res.json({ ok: false, reason: 'no_content' });
-    }
-
-    const summary = extractSummary(
-      article.textContent.replace(/\n{3,}/g, '\n\n').trim()
-    );
-
-    if (!summary || summary.length < 60) {
-      return res.json({ ok: false, reason: 'no_content' });
-    }
-
-    const result = { ok: true, content: summary, excerpt: article.excerpt ?? '' };
-
-    // LRU-style: evict oldest if too large
-    if (articleCache.size >= MAX_ARTICLE_CACHE) {
-      articleCache.delete(articleCache.keys().next().value);
-    }
-    articleCache.set(url, result);
-
-    res.json(result);
-  } catch (err) {
-    const reason = err.name === 'TimeoutError' ? 'timeout' : 'error';
-    console.error(`[article] ${reason}: ${url} — ${err.message}`);
-    res.json({ ok: false, reason });
+    return res.json(result);
   }
+
+  const fetchPromise = (async () => {
+    try {
+      const fetched = await fetchArticleHtml(url);
+      if (!fetched.ok) {
+        return { ok: false, reason: fetched.reason };
+      }
+
+      const { html, finalUrl } = fetched;
+
+      const dom = new JSDOM(html, { url: finalUrl });
+      const reader = new Readability(dom.window.document, {
+        charThreshold: 100,
+      });
+      const article = reader.parse();
+
+      if (!article || !article.textContent || article.textContent.trim().length < 80) {
+        return { ok: false, reason: 'no_content' };
+      }
+
+      const summary = extractSummary(
+        article.textContent.replace(/\n{3,}/g, '\n\n').trim()
+      );
+
+      if (!summary || summary.length < 60) {
+        return { ok: false, reason: 'no_content' };
+      }
+
+      const result = { ok: true, content: summary, excerpt: article.excerpt ?? '' };
+
+      // LRU-style: evict oldest if too large
+      if (articleCache.size >= MAX_ARTICLE_CACHE) {
+        articleCache.delete(articleCache.keys().next().value);
+      }
+      articleCache.set(url, result);
+
+      return result;
+    } catch (err) {
+      const reason = err.name === 'TimeoutError' ? 'timeout' : 'error';
+      console.error(`[article] ${reason}: ${url} — ${err.message}`);
+      return { ok: false, reason };
+    } finally {
+      inFlightArticleFetches.delete(url);
+    }
+  })();
+
+  inFlightArticleFetches.set(url, fetchPromise);
+  const result = await fetchPromise;
+  if (!result.ok && result.reason === 'redirect_blocked') {
+    return res.status(403).json(result);
+  }
+  return res.json(result);
 });
 
 // ── News feed endpoint ─────────────────────────────────────────────────────────

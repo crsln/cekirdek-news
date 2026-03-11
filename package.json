@@ -9,6 +9,7 @@
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
     "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
     "jsdom": "^28.1.0",
     "rss-parser": "^3.13.0"
