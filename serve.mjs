@@ -118,6 +118,22 @@ function cleanSummary(raw, sourceId) {
   return s.replace(/\s+/g, ' ').trim().slice(0, 600);
 }
 
+// ── Content filter (blocked topics) ────────────────────────────────────────────
+const BLOCKED_KEYWORDS = [
+  'burç', 'burc', 'burçlar', 'burclar',
+  'astroloji',
+  'haftalık burç', 'günlük burç', 'aylık burç',
+  'koç burcu', 'boğa burcu', 'ikizler burcu', 'yengeç burcu',
+  'aslan burcu', 'başak burcu', 'terazi burcu', 'akrep burcu',
+  'yay burcu', 'oğlak burcu', 'kova burcu', 'balık burcu',
+  'zodyak', 'horoscope',
+];
+
+function isBlocked(title, summary) {
+  const text = `${title} ${summary}`.toLowerCase();
+  return BLOCKED_KEYWORDS.some(kw => text.includes(kw));
+}
+
 // ── RSS feed cache ─────────────────────────────────────────────────────────────
 const cache = {
   items: [],
@@ -158,7 +174,7 @@ async function fetchSource(source) {
         sourceLabel: source.label,
         sourceColor: source.color,
       };
-    });
+    }).filter(item => !isBlocked(item.title, item.summary));
   } catch (err) {
     console.error(`[${source.id}] fetch failed: ${err.message}`);
     return [];
