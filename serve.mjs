@@ -4,6 +4,7 @@ import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { isIP } from 'node:net';
 import { SOURCES, REFRESH_INTERVAL_MS, MAX_ITEMS_PER_SOURCE } from './sources.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -165,27 +166,103 @@ function extractSummary(text) {
 const articleCache = new Map(); // url → { ok, content, excerpt }
 const MAX_ARTICLE_CACHE = 300;
 
+// Additional article hosts not directly visible from RSS feed hostnames.
+const EXTRA_ALLOWED_DOMAINS_BY_SOURCE = {
+  bbc: ['bbc.com', 'bbc.co.uk', 'bbci.co.uk'],
+  dw: ['dw.com'],
+};
+
+function normalizeHostname(hostname) {
+  return String(hostname ?? '')
+    .toLowerCase()
+    .replace(/\.$/, '')
+    .replace(/^www\./, '');
+}
+
+const ALLOWED_DOMAINS = new Set();
+for (const source of SOURCES) {
+  const feedHost = normalizeHostname(new URL(source.url).hostname);
+  if (feedHost) ALLOWED_DOMAINS.add(feedHost);
+
+  const extraHosts = EXTRA_ALLOWED_DOMAINS_BY_SOURCE[source.id] ?? [];
+  for (const host of extraHosts) {
+    const normalized = normalizeHostname(host);
+    if (normalized) ALLOWED_DOMAINS.add(normalized);
+  }
+}
+
+function isAllowedHostname(hostname) {
+  const host = normalizeHostname(hostname);
+  if (!host) return false;
+  if (host === 'localhost' || host.endsWith('.localhost')) return false;
+  if (isIP(host)) return false;
+
+  for (const allowed of ALLOWED_DOMAINS) {
+    if (host === allowed || host.endsWith(`.${allowed}`)) return true;
+  }
+  return false;
+}
+
+function isAllowedUrl(raw) {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+    return isAllowedHostname(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECT_HOPS = 3;
+
+async function fetchArticleHtml(initialUrl) {
+  let currentUrl = initialUrl;
+
+  for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop += 1) {
+    const response = await fetch(currentUrl, {
+      headers: FETCH_HEADERS,
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (REDIRECT_STATUSES.has(response.status)) {
+      const location = response.headers.get('location');
+      if (!location) return { ok: false, reason: 'redirect_blocked' };
+
+      const nextUrl = new URL(location, currentUrl).href;
+      if (!isAllowedUrl(nextUrl)) return { ok: false, reason: 'redirect_blocked' };
+
+      currentUrl = nextUrl;
+      continue;
+    }
+
+    if (!response.ok) return { ok: false, reason: `http_${response.status}` };
+    return { ok: true, html: await response.text(), finalUrl: currentUrl };
+  }
+
+  return { ok: false, reason: 'too_many_redirects' };
+}
+
 app.get('/api/article', async (req, res) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
   const url = req.query.url;
   if (!url) return res.status(400).json({ ok: false, reason: 'missing url' });
+  if (!isAllowedUrl(url)) return res.status(403).json({ ok: false, reason: 'domain_not_allowed' });
 
   if (articleCache.has(url)) return res.json(articleCache.get(url));
 
   try {
-    const response = await fetch(url, {
-      headers: FETCH_HEADERS,
-      redirect: 'follow',
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      return res.json({ ok: false, reason: `http_${response.status}` });
+    const fetched = await fetchArticleHtml(url);
+    if (!fetched.ok) {
+      if (fetched.reason === 'redirect_blocked') {
+        return res.status(403).json({ ok: false, reason: fetched.reason });
+      }
+      return res.json({ ok: false, reason: fetched.reason });
     }
 
-    const html = await response.text();
-    const finalUrl = response.url; // after redirects
+    const { html, finalUrl } = fetched;
 
     const dom = new JSDOM(html, { url: finalUrl });
     const reader = new Readability(dom.window.document, {
