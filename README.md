@@ -1,4 +1,4 @@
-# çekirdek — türkiye haberleri
+# çekirdek — sade haberler
 
 A minimal Turkish news aggregator. Pulls RSS feeds from 10 sources, extracts article summaries server-side, and presents them in a clean split-panel reader — desktop and mobile.
 
