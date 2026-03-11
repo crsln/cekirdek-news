@@ -10,14 +10,38 @@ import { SOURCES, REFRESH_INTERVAL_MS, MAX_ITEMS_PER_SOURCE } from './sources.mj
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://jeepso.github.io',
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+];
+const ALLOWED_ORIGINS = new Set(
+  (process.env.ALLOWED_ORIGIN ?? '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean)
+    .map(origin => origin.replace(/\/$/, ''))
+);
+if (ALLOWED_ORIGINS.size === 0) {
+  DEFAULT_ALLOWED_ORIGINS.forEach(origin => ALLOWED_ORIGINS.add(origin));
+}
+
+function normalizeOrigin(origin) {
+  return String(origin ?? '').trim().replace(/\/$/, '');
+}
 
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  const requestOrigin = normalizeOrigin(req.headers.origin);
+  if (requestOrigin && ALLOWED_ORIGINS.has(requestOrigin)) {
+    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+  }
+  if (req.method === 'OPTIONS') {
+    if (requestOrigin && !ALLOWED_ORIGINS.has(requestOrigin)) return res.sendStatus(403);
+    return res.sendStatus(204);
+  }
   next();
 });
 
