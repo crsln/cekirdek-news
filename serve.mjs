@@ -135,6 +135,11 @@ const BLOCKED_SOURCE_SECTIONS = [
     pathContains: '/resmi-ilanlar/',
     categoryIncludes: ['resmi ilanlar', 'resmî ilanlar'],
   },
+  {
+    sourceId: 'hurriyet',
+    pathContains: '/resmi-ilanlar/',
+    categoryIncludes: ['resmi ilanlar', 'resmî ilanlar'],
+  },
 ];
 
 function isBlocked(title, summary) {
