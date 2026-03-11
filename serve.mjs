@@ -129,9 +129,31 @@ const BLOCKED_KEYWORDS = [
   'zodyak', 'horoscope',
 ];
 
+const BLOCKED_SOURCE_SECTIONS = [
+  {
+    sourceId: 'cumhuriyet',
+    pathContains: '/resmi-ilanlar/',
+    categoryIncludes: ['resmi ilanlar', 'resmî ilanlar'],
+  },
+];
+
 function isBlocked(title, summary) {
   const text = `${title} ${summary}`.toLowerCase();
   return BLOCKED_KEYWORDS.some(kw => text.includes(kw));
+}
+
+function isSourceSectionBlocked(sourceId, link, categories = []) {
+  const linkText = String(link ?? '').toLowerCase();
+  const categoryTexts = Array.isArray(categories)
+    ? categories.map(category => String(category ?? '').toLowerCase())
+    : [];
+
+  return BLOCKED_SOURCE_SECTIONS.some(rule => {
+    if (rule.sourceId !== sourceId) return false;
+    if (rule.pathContains && linkText.includes(rule.pathContains)) return true;
+    if (!Array.isArray(rule.categoryIncludes) || rule.categoryIncludes.length === 0) return false;
+    return categoryTexts.some(text => rule.categoryIncludes.some(keyword => text.includes(keyword)));
+  });
 }
 
 // ── RSS feed cache ─────────────────────────────────────────────────────────────
@@ -148,9 +170,18 @@ async function fetchSource(source) {
       const s2 = item['content:encodedSnippet'] || item.summary || '';
       const rawSnippet = s1.length >= s2.length ? s1 : s2;
       const summary = cleanSummary(rawSnippet, source.id);
+      const title = item.title?.trim() ?? '';
+      const link = item.link ?? '';
+
+      if (
+        isBlocked(title, summary) ||
+        isSourceSectionBlocked(source.id, link, item.categories)
+      ) {
+        return null;
+      }
 
       // Pre-populate article cache if RSS snippet is rich enough (saves a fetch on click)
-      const articleUrl = item.link ?? '';
+      const articleUrl = link;
       if (articleUrl && rawSnippet.length > 300 && !articleCache.has(articleUrl)) {
         // Apply source-specific pre-processing before extracting summary
         let snippetForCache = rawSnippet;
@@ -166,15 +197,15 @@ async function fetchSource(source) {
 
       return {
         id: `${source.id}::${item.link ?? item.guid ?? item.title}`,
-        title: item.title?.trim() ?? '',
-        link: item.link ?? '',
+        title,
+        link,
         pubDate: item.pubDate ? new Date(item.pubDate).toISOString() : null,
         summary,
         source: source.id,
         sourceLabel: source.label,
         sourceColor: source.color,
       };
-    }).filter(item => !isBlocked(item.title, item.summary));
+    }).filter(Boolean);
   } catch (err) {
     console.error(`[${source.id}] fetch failed: ${err.message}`);
     return [];
