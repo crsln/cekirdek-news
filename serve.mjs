@@ -13,18 +13,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 const DEFAULT_ALLOWED_ORIGINS = [
-  'https://jeepso.github.io',
+  'https://cigdem.xyz',
+  'https://www.cigdem.xyz',
   'http://localhost:3001',
   'http://127.0.0.1:3001',
 ];
-const ALLOWED_ORIGINS = new Set(
-  (process.env.ALLOWED_ORIGIN ?? '')
-    .split(',')
-    .map(origin => origin.trim())
-    .filter(Boolean)
-    .map(origin => origin.replace(/\/$/, ''))
-);
-if (ALLOWED_ORIGINS.size === 0) {
+const configuredOrigins = (process.env.ALLOWED_ORIGIN ?? '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean)
+  .map(origin => origin.replace(/\/$/, ''));
+const ALLOW_ALL_ORIGINS = configuredOrigins.includes('*');
+const ALLOWED_ORIGINS = new Set(configuredOrigins.filter(origin => origin !== '*'));
+if (!ALLOW_ALL_ORIGINS && ALLOWED_ORIGINS.size === 0) {
   DEFAULT_ALLOWED_ORIGINS.forEach(origin => ALLOWED_ORIGINS.add(origin));
 }
 
@@ -50,11 +51,13 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   const requestOrigin = normalizeOrigin(req.headers.origin);
-  if (requestOrigin && ALLOWED_ORIGINS.has(requestOrigin)) {
+  if (requestOrigin && (ALLOW_ALL_ORIGINS || ALLOWED_ORIGINS.has(requestOrigin))) {
     res.setHeader('Access-Control-Allow-Origin', requestOrigin);
   }
   if (req.method === 'OPTIONS') {
-    if (requestOrigin && !ALLOWED_ORIGINS.has(requestOrigin)) return res.sendStatus(403);
+    if (requestOrigin && !ALLOW_ALL_ORIGINS && !ALLOWED_ORIGINS.has(requestOrigin)) {
+      return res.sendStatus(403);
+    }
     return res.sendStatus(204);
   }
   next();

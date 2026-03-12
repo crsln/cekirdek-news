@@ -9,8 +9,8 @@
   <!-- OG meta tags for social sharing -->
   <meta property="og:title" content="Çekirdek — Sade Haber" />
   <meta property="og:description" content="Türkiye'den sade haberler, tek sayfada." />
-  <meta property="og:image" content="https://jeepso.github.io/cekirdek-news/og-image.jpg" />
-  <meta property="og:url" content="https://jeepso.github.io/cekirdek-news/" />
+  <meta property="og:image" content="https://cigdem.xyz/og-image.jpg" />
+  <meta property="og:url" content="https://cigdem.xyz/" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
 
@@ -563,7 +563,7 @@
       <div id="status-bar">
         <span id="status-count"></span>
         <span id="status-source"></span>
-        <a class="license-link" href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener noreferrer">CC BY-NC 4.0</a>
+        <span class="license-link">All rights reserved</span>
       </div>
     </div>
 
@@ -664,9 +664,11 @@
       fetchController: null,
     };
 
-    const API_BASE_URL = window.location.hostname.includes('github.io')
-      ? 'https://cekirdek-news.onrender.com'
-      : '';
+    const API_REMOTE_URL = 'https://cekirdek-news.onrender.com';
+    const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
+    const API_BASE_URL = LOCAL_HOSTS.has(window.location.hostname)
+      ? ''
+      : API_REMOTE_URL;
 
     function apiUrl(path) {
       return `${API_BASE_URL}${path}`;

@@ -2,7 +2,7 @@
 
 A minimal Turkish news aggregator. Pulls RSS feeds from 10 sources, extracts article summaries server-side, and presents them in a clean split-panel reader — desktop and mobile.
 
-🗞️ **[View Live](https://jeepso.github.io/cekirdek-news)**
+🗞️ **[View Live](https://cigdem.xyz)**
 
 ---
 
@@ -52,17 +52,40 @@ For mobile preview: open Chrome DevTools → `Ctrl+Shift+M` → select a device.
 
 | Layer | Platform | Details |
 |-------|----------|---------|
-| Frontend | GitHub Pages | Static `index.html` at [jeepso.github.io/cekirdek-news](https://jeepso.github.io/cekirdek-news) |
-| Backend | [Render](https://render.com) | Node.js web service — RSS fetching, article extraction, CORS |
+| Frontend | [Render](https://render.com) Static Site | Deploys the `public/` directory |
+| Backend | [Render](https://render.com) Web Service | Node.js service for RSS fetching, article extraction, and CORS |
 
 ### Environment variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3001` | Injected automatically by Render |
-| `ALLOWED_ORIGIN` | `*` | Set to your frontend domain to restrict CORS |
+| `ALLOWED_ORIGIN` | `https://cigdem.xyz,https://www.cigdem.xyz,http://localhost:3001,http://127.0.0.1:3001` | Comma-separated allowed frontend origins for CORS (`*` also supported) |
+
+### Custom domain (Dynadot + Render) for `cigdem.xyz`
+
+1. Push this repo to GitHub (`master` branch).
+2. In Render, create a **Static Site** from this repo.
+3. Configure static site:
+   - Build command: empty
+   - Publish directory: `public`
+4. In Render static site settings, add custom domains:
+   - `cigdem.xyz`
+   - `www.cigdem.xyz`
+5. In Dynadot DNS, add records using the exact values Render shows:
+   - `@` -> `ANAME` to your Render static hostname (or apex `A` records if Render gives those)
+   - `www` -> `CNAME` to your Render static hostname
+6. In Render backend service, set:
+   - `ALLOWED_ORIGIN=https://cigdem.xyz,https://www.cigdem.xyz`
+7. Redeploy the backend service after saving env vars.
+8. Keep GitHub for source control, and disable GitHub Pages for this repo to avoid domain conflicts.
 
 > **Note:** On Render's free tier the service sleeps after 15 minutes of inactivity. The first request after sleep takes a few seconds while the feeds are re-fetched.
+
+### Closing source access
+
+To fully close source access, make the GitHub repository private in:
+`Settings -> General -> Change repository visibility`.
 
 ---
 
@@ -94,13 +117,13 @@ For mobile preview: open Chrome DevTools → `Ctrl+Shift+M` → select a device.
 Built with [Claude Code](https://claude.ai/code) (Anthropic) and [Codex](https://openai.com/codex) (OpenAI).
 
 - **Claude Code** — backend architecture, RSS feed engineering, article extraction, source research, mobile layout
-- **Codex** — GitHub Pages and Render deployment setup
+- **Codex** — deployment and infrastructure setup
 
 ---
 
 ## 📄 License
 
-[CC BY-NC 4.0](LICENSE) — free to use and adapt with attribution, non-commercial only.
+[All Rights Reserved](LICENSE).
 
 ---
 
