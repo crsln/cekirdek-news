@@ -1,8 +1,13 @@
+// Source: Cloudflare Workers KV API https://developers.cloudflare.com/kv/api/
+// Source: ctx.waitUntil() https://developers.cloudflare.com/workers/runtime-apis/context/
 import { refreshFeeds } from './rss.js';
 
 // cekirdek-api Worker
 // KV binding: env.NEWS_CACHE (bound to NEWS_CACHE namespace in wrangler.toml)
-// KV key used in later phases: "news:all"
+// Active usage: read on every request, write on cache miss via ctx.waitUntil()
+
+const CACHE_KEY = 'news:all';
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 export default {
   /**
@@ -24,11 +29,27 @@ export default {
         );
       }
 
-      // Phase 3 will wrap this: read KV first, call refreshFeeds() on miss, write KV.
-      // env.NEWS_CACHE is available for future KV reads/writes — not used here.
-      const payload = await refreshFeeds();
+      // CACHE-01: Read from KV — returns null if key missing or expired
+      const cached = await env.NEWS_CACHE.get(CACHE_KEY, { type: 'json' });
+      if (cached && cached.lastUpdated) {
+        const age = Date.now() - new Date(cached.lastUpdated).getTime();
+        if (age < CACHE_TTL_MS) {
+          return new Response(JSON.stringify(cached), {
+            status: 200,
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+          });
+        }
+      }
 
-      return new Response(JSON.stringify(payload), {
+      // CACHE-02: Miss or stale — fetch fresh data
+      const fresh = await refreshFeeds();
+
+      // CACHE-03: Non-blocking write — register before return
+      ctx.waitUntil(
+        env.NEWS_CACHE.put(CACHE_KEY, JSON.stringify(fresh), { expirationTtl: 300 })
+      );
+
+      return new Response(JSON.stringify(fresh), {
         status: 200,
         headers: { "Content-Type": "application/json; charset=utf-8" },
       });
