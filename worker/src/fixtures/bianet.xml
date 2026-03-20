@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>bianet</title>
+    <item>
+      <title>Meclis gündem</title>
+      <link>https://bianet.org/haber/meclis-gundem</link>
+      <pubDate>Thu, 20 Mar 2026 10:00:00 +0000</pubDate>
+      <description><![CDATA[Meclis bu hafta toplanıyor. (ANK)]]></description>
+    </item>
+  </channel>
+</rss>
