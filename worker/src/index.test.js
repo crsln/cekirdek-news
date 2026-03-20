@@ -182,3 +182,89 @@ describe('refreshAndCache — shared logic (CRON-02)', () => {
     expect(vi.mocked(refreshFeeds).mock.calls.length).toBe(1);
   });
 });
+
+describe('CORS headers (NET-01)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('GET /api/news cache-miss response includes Access-Control-Allow-Origin and Vary: Origin', async () => {
+    const env = makeEnv(null);
+    const ctx = makeCtx();
+    const req = makeRequest('GET');
+
+    const response = await worker.fetch(req, env, ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://cigdem.xyz');
+    expect(response.headers.get('Vary')).toContain('Origin');
+  });
+
+  it('GET /unknown (404) response includes Access-Control-Allow-Origin', async () => {
+    const env = makeEnv(null);
+    const ctx = makeCtx();
+    const req = new Request('http://localhost/unknown');
+
+    const response = await worker.fetch(req, env, ctx);
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://cigdem.xyz');
+    expect(response.headers.get('Vary')).toContain('Origin');
+  });
+
+  it('POST /api/news (405) response includes Access-Control-Allow-Origin', async () => {
+    const env = makeEnv(null);
+    const ctx = makeCtx();
+    const req = makeRequest('POST');
+
+    const response = await worker.fetch(req, env, ctx);
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://cigdem.xyz');
+    expect(response.headers.get('Vary')).toContain('Origin');
+  });
+});
+
+describe('OPTIONS preflight (NET-02)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('valid preflight returns 204 with full CORS headers', async () => {
+    const env = makeEnv(null);
+    const ctx = makeCtx();
+    const req = new Request('http://localhost/api/news', {
+      method: 'OPTIONS',
+      headers: {
+        'Origin': 'https://cigdem.xyz',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'Content-Type',
+      },
+    });
+
+    const response = await worker.fetch(req, env, ctx);
+
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe('');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://cigdem.xyz');
+    expect(response.headers.get('Access-Control-Allow-Methods')).toContain('GET');
+    expect(response.headers.get('Access-Control-Allow-Methods')).toContain('OPTIONS');
+    expect(response.headers.get('Access-Control-Allow-Headers')).toContain('Content-Type');
+    expect(response.headers.get('Access-Control-Max-Age')).toBe('86400');
+    expect(response.headers.get('Vary')).toContain('Origin');
+  });
+
+  it('plain OPTIONS (no preflight headers) returns 204 without CORS headers', async () => {
+    const env = makeEnv(null);
+    const ctx = makeCtx();
+    const req = new Request('http://localhost/api/news', {
+      method: 'OPTIONS',
+    });
+
+    const response = await worker.fetch(req, env, ctx);
+
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe('');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  });
+});
