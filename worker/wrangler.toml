@@ -1,10 +1,15 @@
 name = "cekirdek-api"
 main = "src/index.js"
 compatibility_date = "2026-03-20"
+account_id = "c5ec2a1f29a431fe81eb0a85e37522a8"
 
 [[kv_namespaces]]
 binding = "NEWS_CACHE"
-id = "placeholder-will-be-replaced-after-create"
+id = "58e93c41d60647afae4d2e99c744efca"
 
 [triggers]
 crons = ["*/15 * * * *"]
+
+[[routes]]
+pattern = "api.cigdem.xyz"
+custom_domain = true
