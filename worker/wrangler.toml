@@ -1,0 +1,10 @@
+name = "cekirdek-api"
+main = "src/index.js"
+compatibility_date = "2026-03-20"
+
+[[kv_namespaces]]
+binding = "NEWS_CACHE"
+id = "placeholder-will-be-replaced-after-create"
+
+[triggers]
+crons = ["*/15 * * * *"]
