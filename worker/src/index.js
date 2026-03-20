@@ -9,6 +9,36 @@ import { refreshFeeds } from './rss.js';
 const CACHE_KEY = 'news:all';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
 
+// Source: Cloudflare Workers CORS https://developers.cloudflare.com/workers/examples/cors-header-proxy/
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "https://cigdem.xyz",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Max-Age": "86400",
+  "Vary": "Origin",
+};
+
+/**
+ * handleOptions — handles CORS preflight and plain OPTIONS requests
+ * Preflight: Origin + Access-Control-Request-Method + Access-Control-Request-Headers present → 204 with CORS headers
+ * Plain OPTIONS: no preflight headers → 204 without CORS headers
+ * @param {Request} request
+ * @returns {Response}
+ */
+function handleOptions(request) {
+  const origin = request.headers.get('Origin');
+  const requestMethod = request.headers.get('Access-Control-Request-Method');
+  const requestHeaders = request.headers.get('Access-Control-Request-Headers');
+
+  if (origin && requestMethod && requestHeaders) {
+    // Valid preflight — respond with full CORS headers
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
+  // Plain OPTIONS — no CORS headers
+  return new Response(null, { status: 204 });
+}
+
 /**
  * refreshAndCache — shared helper used by both fetch (cache-miss) and scheduled handler
  * Calls refreshFeeds(), writes result to KV via ctx.waitUntil(), returns fresh data.
@@ -36,12 +66,15 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
 
+    // OPTIONS — handle preflight and plain OPTIONS before route matching
+    if (request.method === "OPTIONS") return handleOptions(request);
+
     if (pathname === "/api/news") {
       if (request.method !== "GET") {
-        return Response.json(
-          { error: "Method not allowed" },
-          { status: 405, headers: { "Content-Type": "application/json; charset=utf-8" } }
-        );
+        return new Response(JSON.stringify({ error: "Method not allowed" }), {
+          status: 405,
+          headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+        });
       }
 
       // CACHE-01: Read from KV — returns null if key missing or expired
@@ -51,7 +84,7 @@ export default {
         if (age < CACHE_TTL_MS) {
           return new Response(JSON.stringify(cached), {
             status: 200,
-            headers: { "Content-Type": "application/json; charset=utf-8" },
+            headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
           });
         }
       }
@@ -61,14 +94,14 @@ export default {
 
       return new Response(JSON.stringify(fresh), {
         status: 200,
-        headers: { "Content-Type": "application/json; charset=utf-8" },
+        headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
       });
     }
 
-    return Response.json(
-      { error: "Not found" },
-      { status: 404, headers: { "Content-Type": "application/json; charset=utf-8" } }
-    );
+    return new Response(JSON.stringify({ error: "Not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+    });
   },
 
   /**
