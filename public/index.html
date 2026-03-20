@@ -664,11 +664,7 @@
       fetchController: null,
     };
 
-    const API_REMOTE_URL = 'https://cekirdek-news.onrender.com';
-    const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
-    const API_BASE_URL = LOCAL_HOSTS.has(window.location.hostname)
-      ? ''
-      : API_REMOTE_URL;
+    const API_BASE_URL = 'https://api.cigdem.xyz';
 
     function apiUrl(path) {
       return `${API_BASE_URL}${path}`;
