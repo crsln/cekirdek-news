@@ -9,6 +9,21 @@ import { refreshFeeds } from './rss.js';
 const CACHE_KEY = 'news:all';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
 
+/**
+ * refreshAndCache — shared helper used by both fetch (cache-miss) and scheduled handler
+ * Calls refreshFeeds(), writes result to KV via ctx.waitUntil(), returns fresh data.
+ * @param {Env} env - contains env.NEWS_CACHE (KV namespace)
+ * @param {ExecutionContext} ctx
+ * @returns {Promise<object>} fresh feed data
+ */
+async function refreshAndCache(env, ctx) {
+  const fresh = await refreshFeeds();
+  ctx.waitUntil(
+    env.NEWS_CACHE.put(CACHE_KEY, JSON.stringify(fresh), { expirationTtl: 300 })
+  );
+  return fresh;
+}
+
 export default {
   /**
    * fetch handler — serves HTTP requests
@@ -41,13 +56,8 @@ export default {
         }
       }
 
-      // CACHE-02: Miss or stale — fetch fresh data
-      const fresh = await refreshFeeds();
-
-      // CACHE-03: Non-blocking write — register before return
-      ctx.waitUntil(
-        env.NEWS_CACHE.put(CACHE_KEY, JSON.stringify(fresh), { expirationTtl: 300 })
-      );
+      // CACHE-02: Miss or stale — fetch fresh data and write to KV (shared helper)
+      const fresh = await refreshAndCache(env, ctx);
 
       return new Response(JSON.stringify(fresh), {
         status: 200,
@@ -63,12 +73,12 @@ export default {
 
   /**
    * scheduled handler — cron trigger (every 15 minutes)
-   * Phase 4 will implement RSS fetch and KV write here.
-   * @param {ScheduledEvent} event
+   * Pre-warms the KV cache so requests almost always hit warm cache.
+   * @param {ScheduledController} controller
    * @param {Env} env
    * @param {ExecutionContext} ctx
    */
-  async scheduled(event, env, ctx) {
-    console.log("Cron triggered");
+  async scheduled(controller, env, ctx) {
+    await refreshAndCache(env, ctx);
   },
 };
