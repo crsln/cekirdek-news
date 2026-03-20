@@ -38,6 +38,10 @@ function makeRequest(method = 'GET') {
   return new Request('http://localhost/api/news', { method });
 }
 
+function makeController(cron = '*/15 * * * *') {
+  return { cron, scheduledTime: Date.now(), type: 'scheduled' };
+}
+
 describe('GET /api/news — KV caching', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -121,5 +125,60 @@ describe('GET /api/news — KV caching', () => {
     const waitUntilArg = ctx.waitUntil.mock.calls[0][0];
     // The argument should be a Promise (the KV put return value)
     expect(waitUntilArg).toBeInstanceOf(Promise);
+  });
+});
+
+describe('scheduled handler', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('calls refreshFeeds and writes to KV', async () => {
+    const { refreshFeeds } = await import('./rss.js');
+    const env = makeEnv();
+    const ctx = makeCtx();
+
+    await worker.scheduled(makeController(), env, ctx);
+
+    expect(refreshFeeds).toHaveBeenCalled();
+    expect(env.NEWS_CACHE.put).toHaveBeenCalledWith(
+      'news:all',
+      expect.any(String),
+      { expirationTtl: 300 }
+    );
+    // Verify the JSON string is valid
+    const putCall = env.NEWS_CACHE.put.mock.calls[0];
+    expect(() => JSON.parse(putCall[1])).not.toThrow();
+  });
+
+  it('uses ctx.waitUntil for the KV write', async () => {
+    const env = makeEnv();
+    const ctx = makeCtx();
+
+    await worker.scheduled(makeController(), env, ctx);
+
+    expect(ctx.waitUntil).toHaveBeenCalled();
+    const waitUntilArg = ctx.waitUntil.mock.calls[0][0];
+    expect(waitUntilArg).toBeInstanceOf(Promise);
+  });
+});
+
+describe('refreshAndCache — shared logic (CRON-02)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetch cache-miss path uses refreshAndCache (no duplicate logic)', async () => {
+    const { refreshFeeds } = await import('./rss.js');
+
+    // fetch cache-miss path
+    await worker.fetch(makeRequest(), makeEnv(null), makeCtx());
+    expect(vi.mocked(refreshFeeds).mock.calls.length).toBe(1);
+
+    vi.clearAllMocks();
+
+    // scheduled handler path
+    await worker.scheduled(makeController(), makeEnv(), makeCtx());
+    expect(vi.mocked(refreshFeeds).mock.calls.length).toBe(1);
   });
 });
