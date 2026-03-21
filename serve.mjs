@@ -92,7 +92,12 @@ const parser = new Parser({
 function decodeEntities(str) {
   return String(str ?? '')
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
 }
 
 // ── RSS summary cleanup ────────────────────────────────────────────────────────
@@ -106,7 +111,8 @@ function cleanSummary(raw, sourceId) {
   s = s.replace(/\bsite_linkat\b/gi, '');
 
   if (sourceId === 'diken') {
-    s = s.replace(/^[^\n]+\n/, '');
+    s = s.replace(/^[^\n]+\n/, '');       // remove first line (title repeat)
+    s = s.replace(/\n[^\n]+$/,  '');       // remove last line (title + WP artifacts)
     s = s.replace(/\b\d{1,2}[./]\d{1,2}[./]\d{4}\b/g, '');
     s = s.replace(/\bDiken\b/gi, '');
   }
@@ -123,7 +129,12 @@ function cleanSummary(raw, sourceId) {
     }
   }
 
-  return s.replace(/\s+/g, ' ').trim().slice(0, 600);
+  s = s.replace(/\s+/g, ' ').trim();
+  if (s.length > 600) {
+    const cut = s.lastIndexOf('. ', 600);
+    s = cut > 200 ? s.slice(0, cut + 1) : s.slice(0, 600);
+  }
+  return s;
 }
 
 // ── Content filter (blocked topics) ────────────────────────────────────────────
@@ -152,6 +163,11 @@ const BLOCKED_SOURCE_SECTIONS = [
     sourceId: 'cumhuriyet',
     pathContains: '/yazarlar/',
     categoryIncludes: ['köşe yazıları', 'kose yazilari', 'yazarlar'],
+  },
+  {
+    sourceId: 'cumhuriyet',
+    pathContains: '/gurme/',
+    categoryIncludes: ['gurme', 'yemek tarifleri'],
   },
   {
     sourceId: 'hurriyet',
@@ -215,7 +231,7 @@ async function fetchSource(source) {
       if (articleUrl && rawSnippet.length > 300 && !articleCache.has(articleUrl)) {
         // Apply source-specific pre-processing before extracting summary
         let snippetForCache = rawSnippet;
-        if (source.id === 'diken') snippetForCache = rawSnippet.replace(/^[^\n]+\n/, '');
+        if (source.id === 'diken') snippetForCache = rawSnippet.replace(/^[^\n]+\n/, '').replace(/\n[^\n]+$/, '');
         const content = extractSummary(snippetForCache);
         if (content && content.length >= 60) {
           if (articleCache.size >= MAX_ARTICLE_CACHE) {
@@ -281,7 +297,9 @@ function extractSummary(text) {
     .filter(p =>
       p.length >= 60 &&         // skip short nav/byline fragments
       p.length <= 800 &&        // skip absurdly long single lines
-      !/^\d+[\.\)]\s/.test(p)   // skip numbered list items
+      !/^\d+[\.\)]\s/.test(p) &&                // skip numbered list items
+      !/internet sitesinde yayınlanan/i.test(p) &&  // skip copyright notices
+      !/izin alınmadan|tüm hakları saklıdır|iktibas edilemez|\.com\.tr'ye aittir|Tic\. A\.Ş/i.test(p)
     );
   return paragraphs.slice(0, 3).join('\n\n');
 }

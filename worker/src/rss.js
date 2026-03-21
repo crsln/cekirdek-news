@@ -15,7 +15,12 @@ function stripHtml(str) {
 function decodeEntities(str) {
   return String(str ?? '')
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
 }
 
 // Source: origin/master:serve.mjs lines 89-119
@@ -29,7 +34,8 @@ function cleanSummary(raw, sourceId) {
   s = s.replace(/\bsite_linkat\b/gi, '');
 
   if (sourceId === 'diken') {
-    s = s.replace(/^[^\n]+\n/, '');
+    s = s.replace(/^[^\n]+\n/, '');       // remove first line (title repeat)
+    s = s.replace(/\n[^\n]+$/,  '');       // remove last line (title + WP artifacts)
     s = s.replace(/\b\d{1,2}[./]\d{1,2}[./]\d{4}\b/g, '');
     s = s.replace(/\bDiken\b/gi, '');
   }
@@ -46,7 +52,12 @@ function cleanSummary(raw, sourceId) {
     }
   }
 
-  return s.replace(/\s+/g, ' ').trim().slice(0, 600);
+  s = s.replace(/\s+/g, ' ').trim();
+  if (s.length > 600) {
+    const cut = s.lastIndexOf('. ', 600);
+    s = cut > 200 ? s.slice(0, cut + 1) : s.slice(0, 600);
+  }
+  return s;
 }
 
 // Source: origin/master + fix/hurriyet-resmi-ilanlar:serve.mjs
@@ -75,6 +86,11 @@ const BLOCKED_SOURCE_SECTIONS = [
     sourceId: 'cumhuriyet',
     pathContains: '/yazarlar/',
     categoryIncludes: ['köşe yazıları', 'kose yazilari', 'yazarlar'],
+  },
+  {
+    sourceId: 'cumhuriyet',
+    pathContains: '/gurme/',
+    categoryIncludes: ['gurme', 'yemek tarifleri'],
   },
   {
     sourceId: 'hurriyet',
