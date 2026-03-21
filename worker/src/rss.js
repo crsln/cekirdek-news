@@ -12,18 +12,26 @@ function stripHtml(str) {
   return String(str ?? '').replace(/<[^>]*>/g, '');
 }
 
+function decodeEntities(str) {
+  return String(str ?? '')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
 // Source: origin/master:serve.mjs lines 89-119
 function cleanSummary(raw, sourceId) {
   let s = raw.replace(/<[^>]*>/g, '');
 
+  // Universal WordPress artifact cleanup (all sources)
+  s = s.replace(/The post .+? appeared first on .+?\.?$/s, '');
+  s = s.replace(/appeared first on\s*\.?/gi, '');
+  s = s.replace(/#\w+/g, '');
+  s = s.replace(/\bsite_linkat\b/gi, '');
+
   if (sourceId === 'diken') {
     s = s.replace(/^[^\n]+\n/, '');
-    s = s.replace(/#\w+/g, '');
     s = s.replace(/\b\d{1,2}[./]\d{1,2}[./]\d{4}\b/g, '');
     s = s.replace(/\bDiken\b/gi, '');
-    s = s.replace(/\bsite_linkat\b/gi, '');
-    s = s.replace(/appeared first on\s*\.?/gi, '');
-    s = s.replace(/The post .+? appeared first on .+?\.?$/s, '');
   }
 
   if (sourceId === 'bianet') {
@@ -32,8 +40,6 @@ function cleanSummary(raw, sourceId) {
 
   if (sourceId === 'medyascope') {
     s = s.replace(/\bMedyascope\b/gi, '');
-    s = s.replace(/appeared first on\s*\.?/gi, '');
-    s = s.replace(/The post .+? appeared first on .+?\.?$/s, '');
     const lines = s.split(/\n/).map(l => l.trim()).filter(Boolean);
     if (lines.length > 1 && lines[lines.length - 1].length < 120) {
       s = lines.slice(0, -1).join(' ');
@@ -59,6 +65,16 @@ const BLOCKED_SOURCE_SECTIONS = [
     sourceId: 'cumhuriyet',
     pathContains: '/resmi-ilanlar/',
     categoryIncludes: ['resmi ilanlar', 'resmî ilanlar'],
+  },
+  {
+    sourceId: 'cumhuriyet',
+    pathContains: '/cizerler/',
+    categoryIncludes: ['çizerler', 'cizerler'],
+  },
+  {
+    sourceId: 'cumhuriyet',
+    pathContains: '/yazarlar/',
+    categoryIncludes: ['köşe yazıları', 'kose yazilari', 'yazarlar'],
   },
   {
     sourceId: 'hurriyet',
@@ -99,12 +115,19 @@ async function fetchSource(source) {
     const parsed = xmlParser.parse(xml);
     const items = parsed?.rss?.channel?.item ?? [];
     return items.slice(0, MAX_ITEMS_PER_SOURCE).map(item => {
-      const title = String(item.title ?? '').trim();
+      const title = decodeEntities(String(item.title ?? '').trim());
       const link = String(item.link ?? '');
       const s1 = stripHtml(item.description ?? '');
       const s2 = stripHtml(item['content:encoded'] ?? '');
-      const rawSnippet = s1.length >= s2.length ? s1 : s2;
-      const summary = cleanSummary(rawSnippet, source.id);
+      // For Diken, prefer content:encoded (description is often just title + noise)
+      const rawSnippet = source.id === 'diken' && s2.length > 20
+        ? s2
+        : (s1.length >= s2.length ? s1 : s2);
+      let summary = cleanSummary(decodeEntities(rawSnippet), source.id);
+      // Fallback: if summary is too short after cleanup, try the other field
+      if (summary.length < 20 && s2.length > 20 && rawSnippet !== s2) {
+        summary = cleanSummary(decodeEntities(s2), source.id);
+      }
       const categories = Array.isArray(item.category) ? item.category.map(String) : [];
       const guidRaw = item.guid;
       const guid = typeof guidRaw === 'object' ? guidRaw?.['#text'] : guidRaw;

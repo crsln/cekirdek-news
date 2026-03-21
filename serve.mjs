@@ -88,30 +88,35 @@ const parser = new Parser({
   },
 });
 
+// ── HTML entity decoding ────────────────────────────────────────────────────────
+function decodeEntities(str) {
+  return String(str ?? '')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
 // ── RSS summary cleanup ────────────────────────────────────────────────────────
 function cleanSummary(raw, sourceId) {
   let s = raw.replace(/<[^>]*>/g, ''); // strip HTML tags
 
+  // Universal WordPress artifact cleanup (all sources)
+  s = s.replace(/The post .+? appeared first on .+?\.?$/s, '');
+  s = s.replace(/appeared first on\s*\.?/gi, '');
+  s = s.replace(/#\w+/g, '');
+  s = s.replace(/\bsite_linkat\b/gi, '');
+
   if (sourceId === 'diken') {
-    // First line is always the article title — remove it
     s = s.replace(/^[^\n]+\n/, '');
-    s = s.replace(/#\w+/g, '');                                      // remove #site_linkat etc
-    s = s.replace(/\b\d{1,2}[./]\d{1,2}[./]\d{4}\b/g, '');          // remove dates like 10.03.2026
-    s = s.replace(/\bDiken\b/gi, '');                                 // remove "Diken" brand noise
-    s = s.replace(/\bsite_linkat\b/gi, '');
-    s = s.replace(/appeared first on\s*\.?/gi, '');                  // WordPress RSS artifact
-    s = s.replace(/The post .+? appeared first on .+?\.?$/s, '');    // full WordPress postfix
+    s = s.replace(/\b\d{1,2}[./]\d{1,2}[./]\d{4}\b/g, '');
+    s = s.replace(/\bDiken\b/gi, '');
   }
 
   if (sourceId === 'bianet') {
-    s = s.replace(/\s*\([A-ZÇĞİÖŞÜ]{2,3}\)\s*$/gm, ''); // strip author initials like (NÖ), (TY)
+    s = s.replace(/\s*\([A-ZÇĞİÖŞÜ]{2,3}\)\s*$/gm, '');
   }
 
   if (sourceId === 'medyascope') {
-    s = s.replace(/\bMedyascope\b/gi, '');                           // remove brand noise
-    s = s.replace(/appeared first on\s*\.?/gi, '');                  // WordPress artifact
-    s = s.replace(/The post .+? appeared first on .+?\.?$/s, '');
-    // Remove duplicate trailing title (WordPress appends "Title Source" after description)
+    s = s.replace(/\bMedyascope\b/gi, '');
     const lines = s.split(/\n/).map(l => l.trim()).filter(Boolean);
     if (lines.length > 1 && lines[lines.length - 1].length < 120) {
       s = lines.slice(0, -1).join(' ');
@@ -137,6 +142,16 @@ const BLOCKED_SOURCE_SECTIONS = [
     sourceId: 'cumhuriyet',
     pathContains: '/resmi-ilanlar/',
     categoryIncludes: ['resmi ilanlar', 'resmî ilanlar'],
+  },
+  {
+    sourceId: 'cumhuriyet',
+    pathContains: '/cizerler/',
+    categoryIncludes: ['çizerler', 'cizerler'],
+  },
+  {
+    sourceId: 'cumhuriyet',
+    pathContains: '/yazarlar/',
+    categoryIncludes: ['köşe yazıları', 'kose yazilari', 'yazarlar'],
   },
   {
     sourceId: 'hurriyet',
@@ -176,9 +191,16 @@ async function fetchSource(source) {
     return feed.items.slice(0, MAX_ITEMS_PER_SOURCE).map(item => {
       const s1 = item.contentSnippet || '';
       const s2 = item['content:encodedSnippet'] || item.summary || '';
-      const rawSnippet = s1.length >= s2.length ? s1 : s2;
-      const summary = cleanSummary(rawSnippet, source.id);
-      const title = item.title?.trim() ?? '';
+      // For Diken, prefer content:encoded (description is often just title + noise)
+      const rawSnippet = source.id === 'diken' && s2.length > 20
+        ? s2
+        : (s1.length >= s2.length ? s1 : s2);
+      let summary = cleanSummary(decodeEntities(rawSnippet), source.id);
+      // Fallback: if summary is too short after cleanup, try the other field
+      if (summary.length < 20 && s2.length > 20 && rawSnippet !== s2) {
+        summary = cleanSummary(decodeEntities(s2), source.id);
+      }
+      const title = decodeEntities(item.title?.trim() ?? '');
       const link = item.link ?? '';
 
       if (

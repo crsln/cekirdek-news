@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0d0c0a" />
-  <title>Çekirdek — Sade Haber</title>
+  <title>Çekirdek - Sade Haber</title>
 
   <!-- OG meta tags for social sharing -->
-  <meta property="og:title" content="Çekirdek — Sade Haber" />
+  <meta property="og:title" content="Çekirdek - Sade Haber" />
   <meta property="og:description" content="Türkiye'den sade haberler, tek sayfada." />
   <meta property="og:image" content="https://cigdem.xyz/og-image.jpg" />
   <meta property="og:url" content="https://cigdem.xyz/" />
@@ -165,7 +165,7 @@
       text-transform: uppercase;
     }
 
-    #theme-toggle { padding: 4px 10px; }
+    #theme-toggle { min-height: 24.9px; }
     #theme-toggle .moon { display: inline; }
     #theme-toggle .sun { display: none; }
     html.light #theme-toggle .moon { display: none; }
@@ -473,13 +473,19 @@
       flex-shrink: 0;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
+      gap: 8px;
       padding: 6px 16px;
       border-top: 1px solid var(--c-border);
       background: var(--c-bg-base);
       font-size: 0.56rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
+      color: var(--c-text-ghost);
+    }
+    #status-bar > span:not(:last-child)::after {
+      content: '·';
+      margin-left: 8px;
       color: var(--c-text-ghost);
     }
     .license-link {
@@ -527,12 +533,12 @@
 <body>
 
   <header id="app-header">
-    <div style="padding: 10px 20px; display: flex; align-items: baseline; gap: 10px;">
+    <div style="padding: 10px 20px; display: flex; align-items: center; gap: 10px;">
       <span class="wordmark">çekirdek</span>
       <span class="subtitle">sade haber</span>
       <div style="flex: 1;"></div>
       <button id="update-btn" class="filter-pill" aria-label="Haberleri güncelle">güncelle</button>
-      <button id="theme-toggle" class="panel-btn" aria-label="Tema değiştir"><span class="moon">☽</span><span class="sun">☼</span></button>
+      <button id="theme-toggle" class="filter-pill" aria-label="Tema değiştir"><span class="moon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span><span class="sun"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span></button>
     </div>
   </header>
 
@@ -563,7 +569,7 @@
       <div id="status-bar">
         <span id="status-count"></span>
         <span id="status-source"></span>
-        <span class="license-link">All rights reserved</span>
+        <span class="license-link">© 2026</span>
       </div>
     </div>
 
@@ -579,7 +585,8 @@
         <div id="reader-topbar">
           <button id="mobile-back-btn" class="panel-btn" style="display:none">← Geri</button>
           <div style="flex:1;"></div>
-          <button id="reader-open-source-btn" class="panel-btn">↗ Kaynak</button>
+          <button id="reader-share-btn" class="panel-btn" aria-label="Paylaş"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Paylaş</button>
+          <button id="reader-open-source-btn" class="panel-btn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg> Kaynak</button>
           <button id="reader-close-btn" class="panel-btn">✕</button>
         </div>
 
@@ -664,7 +671,9 @@
       fetchController: null,
     };
 
-    const API_BASE_URL = 'https://api.cigdem.xyz';
+    const API_BASE_URL = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+      ? ''
+      : 'https://api.cigdem.xyz';
 
     function apiUrl(path) {
       return `${API_BASE_URL}${path}`;
@@ -822,6 +831,35 @@
     }
     window.openCurrentInTab = openCurrentInTab;
 
+    // ── Share article ─────────────────────────────────────────────────────────────
+    function toBase64Url(str) {
+      return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function fromBase64Url(b64) {
+      const padded = b64.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - b64.length % 4) % 4);
+      return decodeURIComponent(escape(atob(padded)));
+    }
+
+    const shareBtnHtml = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Paylaş';
+    const shareBtn = document.getElementById('reader-share-btn');
+    shareBtn.addEventListener('click', async () => {
+      if (!state.currentUrl) return;
+      const shareUrl = `${location.origin}${location.pathname}?a=${toBase64Url(state.currentUrl)}`;
+      const currentItem = state.items.find(i => i.link === state.currentUrl);
+      const shareTitle = currentItem?.title ?? 'Çekirdek - Sade Haber';
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: shareTitle, url: shareUrl });
+        } catch (e) { /* user cancelled */ }
+      } else {
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          shareBtn.textContent = 'kopyalandı';
+          setTimeout(() => { shareBtn.innerHTML = shareBtnHtml; }, 1500);
+        } catch (e) { /* clipboard failed */ }
+      }
+    });
+
     // ── Hide filter bar on scroll down (mobile only) ───────────────────────────
     (function () {
       let lastY = 0;
@@ -953,7 +991,7 @@
     function showUpdatedState() {
       const now = new Date();
       const time = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-      updateBtn.textContent = `güncellendi ${time}`;
+      updateBtn.textContent = time;
       updateBtn.classList.add('active');
       clearTimeout(updateTimer);
       updateTimer = setTimeout(() => {
@@ -1005,7 +1043,16 @@
       }
     }
 
-    fetchNews();
+    fetchNews().then(ok => {
+      if (!ok) return;
+      const params = new URLSearchParams(location.search);
+      const encoded = params.get('a');
+      const articleUrl = encoded ? fromBase64Url(encoded) : params.get('article');
+      if (articleUrl) {
+        const item = state.items.find(i => i.link === articleUrl);
+        if (item) openArticle(item);
+      }
+    });
     setInterval(async () => {
       const ok = await fetchNews();
       if (ok) showUpdatedState();
