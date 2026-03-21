@@ -832,19 +832,20 @@
     window.openCurrentInTab = openCurrentInTab;
 
     // ── Share article ─────────────────────────────────────────────────────────────
-    function toBase64Url(str) {
-      return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    }
-    function fromBase64Url(b64) {
-      const padded = b64.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - b64.length % 4) % 4);
-      return decodeURIComponent(escape(atob(padded)));
+    function hashUrl(url) {
+      let h = 0x811c9dc5;
+      for (let i = 0; i < url.length; i++) {
+        h ^= url.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+      }
+      return (h >>> 0).toString(36).padStart(7, '0');
     }
 
     const shareBtnHtml = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Paylaş';
     const shareBtn = document.getElementById('reader-share-btn');
     shareBtn.addEventListener('click', async () => {
       if (!state.currentUrl) return;
-      const shareUrl = `${location.origin}${location.pathname}?a=${toBase64Url(state.currentUrl)}`;
+      const shareUrl = `${location.origin}${location.pathname}?a=${hashUrl(state.currentUrl)}`;
       const currentItem = state.items.find(i => i.link === state.currentUrl);
       const shareTitle = currentItem?.title ?? 'Çekirdek - Sade Haber';
       if (navigator.share) {
@@ -1046,11 +1047,13 @@
     fetchNews().then(ok => {
       if (!ok) return;
       const params = new URLSearchParams(location.search);
-      const encoded = params.get('a');
-      const articleUrl = encoded ? fromBase64Url(encoded) : params.get('article');
-      if (articleUrl) {
-        const item = state.items.find(i => i.link === articleUrl);
-        if (item) openArticle(item);
+      const hash = params.get('a');
+      if (hash) {
+        const item = state.items.find(i => hashUrl(i.link) === hash);
+        if (item) {
+          openArticle(item);
+          history.replaceState(null, '', location.pathname);
+        }
       }
     });
     setInterval(async () => {
