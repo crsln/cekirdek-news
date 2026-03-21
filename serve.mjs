@@ -100,6 +100,19 @@ function decodeEntities(str) {
     .replace(/&apos;/g, "'");
 }
 
+// Extract text from <p> tags only — useful when description has junk outside <p>
+function extractParagraphs(str) {
+  const raw = String(str ?? '');
+  const matches = [];
+  const re = /<p[^>]*>(.*?)<\/p>/gis;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    const text = m[1].replace(/<[^>]*>/g, '').trim();
+    if (text.length > 10) matches.push(text);
+  }
+  return matches.join(' ');
+}
+
 // ── RSS summary cleanup ────────────────────────────────────────────────────────
 function cleanSummary(raw, sourceId) {
   let s = raw.replace(/<[^>]*>/g, ''); // strip HTML tags
@@ -207,10 +220,15 @@ async function fetchSource(source) {
     return feed.items.slice(0, MAX_ITEMS_PER_SOURCE).map(item => {
       const s1 = item.contentSnippet || '';
       const s2 = item['content:encodedSnippet'] || item.summary || '';
-      // For Diken, prefer content:encoded (description is often just title + noise)
-      const rawSnippet = source.id === 'diken' && s2.length > 20
-        ? s2
-        : (s1.length >= s2.length ? s1 : s2);
+      let rawSnippet;
+      if (source.id === 'diken') {
+        // Diken description has junk outside <p> — extract <p> content from raw HTML
+        const rawHtml = item.content || item['content:encoded'] || '';
+        const pText = extractParagraphs(rawHtml);
+        rawSnippet = pText.length > 20 ? pText : (s2.length > 20 ? s2 : s1);
+      } else {
+        rawSnippet = s1.length >= s2.length ? s1 : s2;
+      }
       let summary = cleanSummary(decodeEntities(rawSnippet), source.id);
       // Fallback: if summary is too short after cleanup, try the other field
       if (summary.length < 20 && s2.length > 20 && rawSnippet !== s2) {
