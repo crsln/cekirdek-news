@@ -183,6 +183,11 @@ const BLOCKED_SOURCE_SECTIONS = [
     categoryIncludes: ['gurme', 'yemek tarifleri'],
   },
   {
+    sourceId: 'cumhuriyet',
+    pathContains: '/tv-rehberi/',
+    categoryIncludes: ['tv rehberi'],
+  },
+  {
     sourceId: 'hurriyet',
     pathContains: '/resmi-ilanlar/',
     categoryIncludes: ['resmi ilanlar', 'resmî ilanlar'],
