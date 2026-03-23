@@ -40,7 +40,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      connectSrc: ["'self'", "https://cekirdek-news.onrender.com"],
+      connectSrc: ["'self'", "https://cekirdek-news.onrender.com", "https://api.cigdem.xyz"],
       imgSrc: ["'self'", "data:"],
     },
   },
@@ -419,10 +419,18 @@ async function fetchArticleHtml(initialUrl) {
       return { ok: false, reason: 'too_large' };
     }
 
-    const html = await response.text();
-    if (Buffer.byteLength(html, 'utf8') > MAX_ARTICLE_HTML_BYTES) {
-      return { ok: false, reason: 'too_large' };
+    // Stream body with byte counter — abort early if too large
+    const chunks = [];
+    let totalBytes = 0;
+    for await (const chunk of response.body) {
+      totalBytes += chunk.length;
+      if (totalBytes > MAX_ARTICLE_HTML_BYTES) {
+        response.body.destroy();
+        return { ok: false, reason: 'too_large' };
+      }
+      chunks.push(chunk);
     }
+    const html = Buffer.concat(chunks).toString('utf-8');
     return { ok: true, html, finalUrl: currentUrl };
   }
 
@@ -501,7 +509,11 @@ app.get('/api/article', async (req, res) => {
 // ── News feed endpoint ─────────────────────────────────────────────────────────
 app.get('/api/news', async (_req, res) => {
   await firstRefresh;
+  if (cache.lastUpdated && Date.now() - new Date(cache.lastUpdated).getTime() > REFRESH_INTERVAL_MS) {
+    await refreshAllFeeds().catch(err => console.error('[stale-refresh]', err.message));
+  }
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=300');
   res.json({
     items: cache.items,
     lastUpdated: cache.lastUpdated,

@@ -11,17 +11,25 @@ const CACHE_KEY = 'news:all';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Source: Cloudflare Workers CORS https://developers.cloudflare.com/workers/examples/cors-header-proxy/
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "https://cigdem.xyz",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Max-Age": "86400",
-  "Vary": "Origin",
-};
+const ALLOWED_ORIGINS = new Set([
+  'https://cigdem.xyz',
+  'https://www.cigdem.xyz',
+]);
+
+function corsHeaders(request) {
+  const origin = request.headers.get('Origin');
+  return {
+    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : 'https://cigdem.xyz',
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+    "Vary": "Origin",
+  };
+}
 
 /**
  * handleOptions — handles CORS preflight and plain OPTIONS requests
- * Preflight: Origin + Access-Control-Request-Method + Access-Control-Request-Headers present → 204 with CORS headers
+ * Preflight: Origin + Access-Control-Request-Method present → 204 with CORS headers
  * Plain OPTIONS: no preflight headers → 204 without CORS headers
  * @param {Request} request
  * @returns {Response}
@@ -29,11 +37,10 @@ const CORS_HEADERS = {
 function handleOptions(request) {
   const origin = request.headers.get('Origin');
   const requestMethod = request.headers.get('Access-Control-Request-Method');
-  const requestHeaders = request.headers.get('Access-Control-Request-Headers');
 
-  if (origin && requestMethod && requestHeaders) {
+  if (origin && requestMethod) {
     // Valid preflight — respond with full CORS headers
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return new Response(null, { status: 204, headers: corsHeaders(request) });
   }
 
   // Plain OPTIONS — no CORS headers
@@ -74,7 +81,7 @@ export default {
       if (request.method !== "GET") {
         return new Response(JSON.stringify({ error: "Method not allowed" }), {
           status: 405,
-          headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+          headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders(request) },
         });
       }
 
@@ -85,7 +92,7 @@ export default {
         if (age < CACHE_TTL_MS) {
           return new Response(JSON.stringify(cached), {
             status: 200,
-            headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+            headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=300", ...corsHeaders(request) },
           });
         }
       }
@@ -95,7 +102,7 @@ export default {
 
       return new Response(JSON.stringify(fresh), {
         status: 200,
-        headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=300", ...corsHeaders(request) },
       });
     }
 
@@ -103,7 +110,7 @@ export default {
       if (request.method !== "GET") {
         return new Response(JSON.stringify({ error: "Method not allowed" }), {
           status: 405,
-          headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+          headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders(request) },
         });
       }
 
@@ -111,26 +118,26 @@ export default {
       if (!articleUrl) {
         return new Response(JSON.stringify({ ok: false, reason: "missing url" }), {
           status: 400,
-          headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+          headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders(request) },
         });
       }
       if (!isAllowedUrl(articleUrl)) {
         return new Response(JSON.stringify({ ok: false, reason: "domain_not_allowed" }), {
           status: 403,
-          headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+          headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders(request) },
         });
       }
 
       const result = await extractArticle(articleUrl, env);
       return new Response(JSON.stringify(result), {
         status: result.ok ? 200 : 502,
-        headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+        headers: { "Content-Type": "application/json; charset=utf-8", ...(result.ok ? { "Cache-Control": "public, max-age=300" } : {}), ...corsHeaders(request) },
       });
     }
 
     return new Response(JSON.stringify({ error: "Not found" }), {
       status: 404,
-      headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+      headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders(request) },
     });
   },
 
