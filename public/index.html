@@ -696,6 +696,7 @@
         .replace(/'/g, '&#39;');
     }
 
+    function isValidColor(c) { return /^#[0-9a-fA-F]{3,8}$/.test(c); }
     const isDesktop = () => window.innerWidth >= 768;
 
     // ── Article content fetching ───────────────────────────────────────────────
@@ -720,6 +721,7 @@
         if (controller.signal.aborted) return;
 
         const data = await res.json();
+        if (state.currentUrl !== url) return;
 
         loadingEl.classList.add('hidden');
         bodyEl.classList.remove('hidden');
@@ -912,8 +914,7 @@
         const btn = document.createElement('button');
         btn.className = 'filter-pill';
         btn.dataset.filter = src.id;
-        btn.innerHTML = `<span class="source-dot" style="background:${src.color};"></span>${escapeHtml(src.label)}`;
-        btn.addEventListener('click', () => setFilter(src.id, btn));
+        btn.innerHTML = `<span class="source-dot" style="background:${isValidColor(src.color) ? src.color : 'transparent'};"></span>${escapeHtml(src.label)}`;
         bar.appendChild(btn);
       });
     }
@@ -963,7 +964,7 @@
 <article
   class="card card-animate${selected}"
   data-item-id="${escapeHtml(item.id)}"
-  style="border-left-color:${src.color};animation-delay:${delay}ms;"
+  style="border-left-color:${isValidColor(src.color) ? src.color : 'transparent'};animation-delay:${delay}ms;"
   tabindex="0"
   role="button"
   aria-label="${escapeHtml(item.title)}"

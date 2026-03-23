@@ -178,7 +178,7 @@ async function fetchSource(source) {
         id: `${source.id}::${link || guid || title}`,
         title,
         link,
-        pubDate: item.pubDate ? new Date(item.pubDate).toISOString() : null,
+        pubDate: (() => { const d = item.pubDate ? new Date(item.pubDate) : null; return d && !Number.isNaN(d.getTime()) ? d.toISOString() : null; })(),
         summary,
         source: source.id,
         sourceLabel: source.label,
