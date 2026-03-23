@@ -1,6 +1,7 @@
 // Source: Cloudflare Workers KV API https://developers.cloudflare.com/kv/api/
 // Source: ctx.waitUntil() https://developers.cloudflare.com/workers/runtime-apis/context/
 import { refreshFeeds } from './rss.js';
+import { isAllowedUrl, extractArticle } from './article.js';
 
 // cekirdek-api Worker
 // KV binding: env.NEWS_CACHE (bound to NEWS_CACHE namespace in wrangler.toml)
@@ -94,6 +95,35 @@ export default {
 
       return new Response(JSON.stringify(fresh), {
         status: 200,
+        headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+      });
+    }
+
+    if (pathname === "/api/article") {
+      if (request.method !== "GET") {
+        return new Response(JSON.stringify({ error: "Method not allowed" }), {
+          status: 405,
+          headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+        });
+      }
+
+      const articleUrl = url.searchParams.get('url');
+      if (!articleUrl) {
+        return new Response(JSON.stringify({ ok: false, reason: "missing url" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+        });
+      }
+      if (!isAllowedUrl(articleUrl)) {
+        return new Response(JSON.stringify({ ok: false, reason: "domain_not_allowed" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
+        });
+      }
+
+      const result = await extractArticle(articleUrl, env);
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 502,
         headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS },
       });
     }
