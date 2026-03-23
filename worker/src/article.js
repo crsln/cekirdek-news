@@ -25,8 +25,8 @@ function isAllowedHostname(hostname) {
   const host = normalizeHostname(hostname);
   if (!host) return false;
   if (host === 'localhost' || host.endsWith('.localhost')) return false;
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return false;  // IPv4
-  if (host.startsWith('[')) return false;                      // IPv6
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return false;
+  if (host.startsWith('[')) return false;
   for (const allowed of ALLOWED_DOMAINS) {
     if (host === allowed || host.endsWith(`.${allowed}`)) return true;
   }
@@ -43,90 +43,40 @@ export function isAllowedUrl(raw) {
   }
 }
 
-// ── HTMLRewriter-based article extraction ────────────────────────────────────────
-class ParagraphCollector {
-  constructor() {
-    this.paragraphs = [];
-    this.current = null;
-    this.insideArticle = false;
-    this.articleFound = false;
-  }
+// ── HTML entity decoding ────────────────────────────────────────────────────────
+const NAMED_ENTITIES = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  ouml: 'ö', Ouml: 'Ö', uuml: 'ü', Uuml: 'Ü', ccedil: 'ç', Ccedil: 'Ç',
+  iuml: 'ï', Iuml: 'Ï', auml: 'ä', Auml: 'Ä', szlig: 'ß',
+  rsquo: '\u2019', lsquo: '\u2018', rdquo: '\u201D', ldquo: '\u201C',
+  mdash: '\u2014', ndash: '\u2013', hellip: '\u2026', bull: '\u2022',
+  copy: '\u00A9', reg: '\u00AE', trade: '\u2122', euro: '\u20AC',
+  pound: '\u00A3', yen: '\u00A5', cent: '\u00A2', deg: '\u00B0',
+  times: '\u00D7', divide: '\u00F7', plusmn: '\u00B1', frac12: '\u00BD',
+  frac14: '\u00BC', frac34: '\u00BE', laquo: '\u00AB', raquo: '\u00BB',
+  iexcl: '\u00A1', iquest: '\u00BF', sect: '\u00A7', para: '\u00B6',
+  micro: '\u00B5', middot: '\u00B7', cedil: '\u00B8', ordf: '\u00AA',
+  ordm: '\u00BA', sup1: '\u00B9', sup2: '\u00B2', sup3: '\u00B3',
+  acute: '\u00B4', eth: '\u00F0', thorn: '\u00FE',
+  ntilde: '\u00F1', Ntilde: '\u00D1', agrave: '\u00E0', egrave: '\u00E8',
+  igrave: '\u00EC', ograve: '\u00F2', ugrave: '\u00F9',
+  aacute: '\u00E1', eacute: '\u00E9', iacute: '\u00ED', oacute: '\u00F3',
+  uacute: '\u00FA', acirc: '\u00E2', ecirc: '\u00EA', icirc: '\u00EE',
+  ocirc: '\u00F4', ucirc: '\u00FB', atilde: '\u00E3', otilde: '\u00F5',
+  aring: '\u00E5', Aring: '\u00C5', oelig: '\u0153', OElig: '\u0152',
+  scaron: '\u0161', Scaron: '\u0160',
+};
+
+function decodeEntities(text) {
+  return text
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
+    .replace(/&([a-zA-Z]+);/g, (match, name) => NAMED_ENTITIES[name] ?? match);
 }
 
-function createRewriter(collector) {
-  return new HTMLRewriter()
-    .on('article', {
-      element() {
-        collector.insideArticle = true;
-        collector.articleFound = true;
-      },
-    })
-    .on('article', {
-      // Need a separate handler to detect end — use a trick:
-      // We track via p tags whether we're in article context
-    })
-    .on('p', {
-      element(el) {
-        collector.current = '';
-      },
-      text(chunk) {
-        if (collector.current !== null) {
-          collector.current += chunk.text;
-        }
-      },
-    })
-    // Use a comment handler trick: we finalize on the next element start
-    .on('p', {
-      element(el) {
-        // This fires for the NEXT p, so we save the previous one
-      },
-    });
-}
-
-// Since HTMLRewriter is streaming and doesn't have a clean "element end" callback,
-// we use a simpler approach: collect all <p> text, then filter.
-function createSimpleRewriter(collector) {
-  let currentText = null;
-  let inArticle = false;
-  let articleDepth = 0;
-
-  return new HTMLRewriter()
-    .on('article', {
-      element() {
-        inArticle = true;
-        articleDepth++;
-        collector.articleFound = true;
-      },
-    })
-    .on('script, style, nav, header, footer, aside, form, [class*="comment"], [class*="related"], [class*="social"], [class*="share"], [class*="widget"], [class*="sidebar"], [class*="ad-"], [class*="advertisement"]', {
-      element(el) {
-        el.remove();
-      },
-    })
-    .on('p', {
-      element() {
-        // Flush previous paragraph
-        if (currentText !== null) {
-          const trimmed = currentText.trim().replace(/\s+/g, ' ');
-          if (trimmed.length >= 30) {
-            collector.paragraphs.push(trimmed);
-          }
-        }
-        currentText = '';
-      },
-      text(chunk) {
-        if (currentText !== null) {
-          currentText += chunk.text;
-        }
-      },
-    })
-    // Flush on body close
-    .on('body', {
-      element() {
-        // Flush last paragraph when we're done
-      },
-    });
-}
+// ── Junk paragraph detection ────────────────────────────────────────────────────
+// Classes that indicate a <p> is not article content
+const SKIP_CLASS_PATTERNS = /text-xs|text-\[10px\]|text-\[11px\]|promo|banner|advert|cookie|consent|newsletter|subscribe|signup/i;
 
 function extractSummary(paragraphs) {
   const filtered = paragraphs.filter(p =>
@@ -134,7 +84,9 @@ function extractSummary(paragraphs) {
     p.length <= 800 &&
     !/^\d+[\.\)]\s/.test(p) &&
     !/internet sitesinde yayınlanan/i.test(p) &&
-    !/izin alınmadan|tüm hakları saklıdır|iktibas edilemez|\.com\.tr'ye aittir|Tic\. A\.Ş/i.test(p)
+    !/izin alınmadan|tüm hakları saklıdır|iktibas edilemez|\.com\.tr'ye aittir|Tic\. A\.Ş/i.test(p) &&
+    !/kitap dünyasına|indirimli fiyat|hayal gücünüzü|hemen keşfet|ücretsiz kargo|kampanya|fırsatı kaçırma/i.test(p) &&
+    !/çerez|cookie|gizlilik politika|kişisel veri/i.test(p)
   );
   return filtered.slice(0, 3).join('\n\n');
 }
@@ -168,28 +120,32 @@ export async function extractArticle(url, env) {
   }
 
   // Use HTMLRewriter to extract paragraphs
-  const collector = { paragraphs: [], articleFound: false };
+  const collector = { paragraphs: [] };
   let currentText = null;
+  let skipCurrent = false;
 
   const rewriter = new HTMLRewriter()
-    .on('script, style, nav, header, footer, aside, form, [class*="comment"], [class*="related"], [class*="social"], [class*="share"], [class*="widget"], [class*="sidebar"], [class*="ad-"], [class*="advertisement"]', {
+    .on('script, style, nav, header, footer, aside, form, [class*="comment"], [class*="related"], [class*="social"], [class*="share"], [class*="widget"], [class*="sidebar"], [class*="ad-"], [class*="advertisement"], [class*="promo"], [class*="banner"], [class*="cookie"], [class*="newsletter"]', {
       element(el) {
         el.remove();
       },
     })
     .on('p', {
-      element() {
+      element(el) {
         // Flush previous paragraph
-        if (currentText !== null) {
-          const trimmed = currentText.trim().replace(/\s+/g, ' ');
-          if (trimmed.length >= 30) {
-            collector.paragraphs.push(trimmed);
+        if (currentText !== null && !skipCurrent) {
+          const decoded = decodeEntities(currentText.trim().replace(/\s+/g, ' '));
+          if (decoded.length >= 30) {
+            collector.paragraphs.push(decoded);
           }
         }
+        // Check if this <p> should be skipped based on class
+        const cls = el.getAttribute('class') || '';
+        skipCurrent = SKIP_CLASS_PATTERNS.test(cls);
         currentText = '';
       },
       text(chunk) {
-        if (currentText !== null) {
+        if (currentText !== null && !skipCurrent) {
           currentText += chunk.text;
         }
       },
@@ -197,13 +153,13 @@ export async function extractArticle(url, env) {
 
   // Transform consumes the response body via streaming
   const transformed = rewriter.transform(response);
-  await transformed.text(); // drain the stream
+  await transformed.text();
 
   // Flush last paragraph
-  if (currentText !== null) {
-    const trimmed = currentText.trim().replace(/\s+/g, ' ');
-    if (trimmed.length >= 30) {
-      collector.paragraphs.push(trimmed);
+  if (currentText !== null && !skipCurrent) {
+    const decoded = decodeEntities(currentText.trim().replace(/\s+/g, ' '));
+    if (decoded.length >= 30) {
+      collector.paragraphs.push(decoded);
     }
   }
 
@@ -215,7 +171,7 @@ export async function extractArticle(url, env) {
 
   const result = { ok: true, content, excerpt: '' };
 
-  // Cache in KV (24h TTL) — non-blocking
+  // Cache in KV (24h TTL)
   try {
     await env.NEWS_CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 86400 });
   } catch { /* KV write failed, not critical */ }
