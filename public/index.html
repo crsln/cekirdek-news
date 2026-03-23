@@ -104,11 +104,14 @@
 
     /* Smooth theme transition (added/removed dynamically) */
     html.theme-transition,
-    html.theme-transition *,
-    html.theme-transition *::before,
-    html.theme-transition *::after {
-      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
-      transition-delay: 0s !important;
+    html.theme-transition body,
+    html.theme-transition #app-header,
+    html.theme-transition #left-panel,
+    html.theme-transition #right-panel,
+    html.theme-transition .card,
+    html.theme-transition .filter-pill {
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+      transition-delay: 0s;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -412,6 +415,7 @@
     .card.selected { background: var(--c-bg-surface-hover); }
     .card.selected .card-title { color: var(--c-highlight); }
     .card:hover .card-title { color: var(--c-highlight); }
+    .card:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 
     .card-meta {
       font-size: 0.58rem;
@@ -504,6 +508,10 @@
     }
     .reader-animate { animation: readerIn 0.25s ease forwards; }
 
+    @media (prefers-reduced-motion: reduce) {
+      .card-animate, .skeleton-line, .reader-animate { animation: none !important; }
+    }
+
     .hidden { display: none !important; }
 
     @media (max-width: 767px) {
@@ -551,7 +559,7 @@
       </div>
 
       <div id="cards-scroll">
-        <div id="error-state" class="error-banner hidden">Haberler yüklenemedi.</div>
+        <div id="error-state" class="error-banner hidden" role="alert">Haberler yüklenemedi.</div>
 
         <div id="skeleton">
           <div class="card skeleton-card" style="animation:none;"><div class="card-meta"><div class="skeleton-line" style="width:72px;height:8px;"></div></div><div class="skeleton-line" style="width:95%;height:14px;margin-bottom:5px;"></div><div class="skeleton-line" style="width:68%;height:14px;"></div></div><hr class="card-divider"/>
@@ -778,12 +786,24 @@
     }
 
     // ── Panel controls ─────────────────────────────────────────────────────────
-    function closeMobileReader() {
-      document.getElementById('right-panel').classList.remove('mobile-open');
-      document.getElementById('left-panel').style.display = '';
+    function closeMobileReader(fromPopState) {
+      const rightPanel = document.getElementById('right-panel');
+      const leftPanel = document.getElementById('left-panel');
+      rightPanel.classList.remove('mobile-open');
+      rightPanel.removeAttribute('role');
+      rightPanel.removeAttribute('aria-modal');
+      leftPanel.style.display = '';
+      leftPanel.removeAttribute('inert');
+      if (!fromPopState && history.state?.cekirdekReader) history.back();
       closePanel();
     }
     window.closeMobileReader = closeMobileReader;
+
+    window.addEventListener('popstate', (e) => {
+      if (document.getElementById('right-panel').classList.contains('mobile-open')) {
+        closeMobileReader(true);
+      }
+    });
 
     function openArticle(item) {
       state.selectedId = item.id;
@@ -806,8 +826,15 @@
       setTimeout(() => document.getElementById('reader-content').classList.remove('reader-animate'), 300);
 
       if (!isDesktop()) {
-        document.getElementById('right-panel').classList.add('mobile-open');
-        document.getElementById('left-panel').style.display = 'none';
+        const rightPanel = document.getElementById('right-panel');
+        const leftPanel = document.getElementById('left-panel');
+        rightPanel.classList.add('mobile-open');
+        rightPanel.setAttribute('role', 'dialog');
+        rightPanel.setAttribute('aria-modal', 'true');
+        leftPanel.style.display = 'none';
+        leftPanel.setAttribute('inert', '');
+        rightPanel.focus();
+        history.pushState({ cekirdekReader: true }, '');
       }
 
       document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
@@ -845,6 +872,7 @@
 
     const shareBtnHtml = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Paylaş';
     const shareBtn = document.getElementById('reader-share-btn');
+    shareBtn.setAttribute('aria-live', 'polite');
     shareBtn.addEventListener('click', async () => {
       if (!state.currentUrl) return;
       const shareUrl = `${location.origin}${location.pathname}?a=${hashUrl(state.currentUrl)}`;
@@ -921,8 +949,14 @@
 
     function setFilter(sourceId, el) {
       state.activeFilter = sourceId;
-      document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-      if (el) el.classList.add('active');
+      document.querySelectorAll('.filter-pill').forEach(p => {
+        p.classList.remove('active');
+        p.setAttribute('aria-pressed', 'false');
+      });
+      if (el) {
+        el.classList.add('active');
+        el.setAttribute('aria-pressed', 'true');
+      }
       renderCards();
     }
     window.setFilter = setFilter;
