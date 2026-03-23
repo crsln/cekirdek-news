@@ -400,6 +400,8 @@
     .filter-pill:focus-visible { outline: 1px solid var(--c-accent); outline-offset: 2px; }
     .filter-pill:active { opacity: 0.8; }
     .filter-pill:disabled { opacity: 0.5; cursor: default; }
+    .filter-pill.excluded { opacity: 0.4; text-decoration: line-through; }
+    .filter-pill.excluded .source-dot { opacity: 0.3; }
 
     .source-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 
@@ -677,6 +679,7 @@
       selectedId: null,
       currentUrl: null,
       fetchController: null,
+      disabledSources: JSON.parse(localStorage.getItem('cekirdek-disabled-sources') || '[]'),
     };
 
     const API_BASE_URL = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
@@ -941,6 +944,7 @@
       presentSources.forEach(src => {
         const btn = document.createElement('button');
         btn.className = 'filter-pill';
+        if (state.disabledSources.includes(src.id)) btn.classList.add('excluded');
         btn.dataset.filter = src.id;
         btn.innerHTML = `<span class="source-dot" style="background:${isValidColor(src.color) ? src.color : 'transparent'};"></span>${escapeHtml(src.label)}`;
         bar.appendChild(btn);
@@ -966,6 +970,29 @@
       if (!btn || !this.contains(btn)) return;
       const sourceId = btn.dataset.filter;
       if (!sourceId) return;
+
+      // Excluded pill clicked → re-enable it
+      if (btn.classList.contains('excluded')) {
+        state.disabledSources = state.disabledSources.filter(id => id !== sourceId);
+        localStorage.setItem('cekirdek-disabled-sources', JSON.stringify(state.disabledSources));
+        btn.classList.remove('excluded');
+        renderCards();
+        return;
+      }
+
+      // Already active source clicked again → exclude it
+      if (state.activeFilter === sourceId) {
+        state.disabledSources.push(sourceId);
+        localStorage.setItem('cekirdek-disabled-sources', JSON.stringify(state.disabledSources));
+        btn.classList.add('excluded');
+        btn.classList.remove('active');
+        btn.setAttribute('aria-pressed', 'false');
+        const allBtn = document.querySelector('[data-filter="all"]');
+        setFilter('all', allBtn);
+        return;
+      }
+
+      // Normal click → filter to this source
       setFilter(sourceId, btn);
     });
     document.getElementById('mobile-back-btn').addEventListener('click', closeMobileReader);
@@ -978,7 +1005,7 @@
       const { items, activeFilter, selectedId } = state;
 
       const filtered = activeFilter === 'all'
-        ? items
+        ? items.filter(i => !state.disabledSources.includes(i.source))
         : items.filter(i => i.source === activeFilter);
 
       const srcLabel = activeFilter !== 'all' ? SOURCE_MAP[activeFilter]?.label ?? '' : 'tüm kaynaklar';
