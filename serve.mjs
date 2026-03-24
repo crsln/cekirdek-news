@@ -134,6 +134,10 @@ function cleanSummary(raw, sourceId) {
     s = s.replace(/\s*\([A-ZÇĞİÖŞÜ]{2,3}\)\s*$/gm, '');
   }
 
+  if (sourceId === 'bbc') {
+    s = s.replace(/Gündemi BBC Türkçe.+?tıklayın\./gi, '');
+  }
+
   if (sourceId === 'medyascope') {
     s = s.replace(/\bMedyascope\b/gi, '');
     const lines = s.split(/\n/).map(l => l.trim()).filter(Boolean);
@@ -322,8 +326,7 @@ function extractSummary(text) {
       p.length <= 800 &&        // skip absurdly long single lines
       !/^\d+[\.\)]\s/.test(p) &&                // skip numbered list items
       !/internet sitesinde yayınlanan/i.test(p) &&  // skip copyright notices
-      !/izin alınmadan|tüm hakları saklıdır|iktibas edilemez|\.com\.tr'ye aittir|Tic\. A\.Ş/i.test(p) &&
-      !/whatsapp|telegram|uygulamamızı indirin|kanalımıza katılın|telefonunuza gelmesi için/i.test(p)
+      !/izin alınmadan|tüm hakları saklıdır|iktibas edilemez|\.com\.tr'ye aittir|Tic\. A\.Ş/i.test(p)
     );
   return paragraphs.slice(0, 3).join('\n\n');
 }

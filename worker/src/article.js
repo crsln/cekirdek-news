@@ -95,8 +95,7 @@ function extractSummary(paragraphs) {
     !/internet sitesinde yayınlanan/i.test(p) &&
     !/izin alınmadan|tüm hakları saklıdır|iktibas edilemez|\.com\.tr'ye aittir|Tic\. A\.Ş/i.test(p) &&
     !/kitap dünyasına|indirimli fiyat|hayal gücünüzü|hemen keşfet|ücretsiz kargo|kampanya|fırsatı kaçırma/i.test(p) &&
-    !/çerez|cookie|gizlilik politika|kişisel veri/i.test(p) &&
-    !/whatsapp|telegram|uygulamamızı indirin|kanalımıza katılın|telefonunuza gelmesi için/i.test(p)
+    !/çerez|cookie|gizlilik politika|kişisel veri/i.test(p)
   );
   return filtered.slice(0, 3).join('\n\n');
 }

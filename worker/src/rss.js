@@ -57,6 +57,10 @@ function cleanSummary(raw, sourceId) {
     s = s.replace(/\s*\([A-ZÇĞİÖŞÜ]{2,3}\)\s*$/gm, '');
   }
 
+  if (sourceId === 'bbc') {
+    s = s.replace(/Gündemi BBC Türkçe.+?tıklayın\./gi, '');
+  }
+
   if (sourceId === 'medyascope') {
     s = s.replace(/\bMedyascope\b/gi, '');
     const lines = s.split(/\n/).map(l => l.trim()).filter(Boolean);
