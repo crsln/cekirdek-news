@@ -144,10 +144,9 @@
     @media (max-width: 767px) {
       html { height: auto; overflow: auto; -webkit-overflow-scrolling: touch; }
       body { height: auto; overflow: visible; display: block; }
-      #app-header { position: sticky; top: 0; z-index: 100; }
       #split-container { display: block; overflow: visible; }
       #left-panel { display: block; overflow: visible; }
-      #cards-scroll { overflow: visible; height: auto; padding-bottom: env(safe-area-inset-bottom); }
+      #cards-scroll { overflow: visible !important; height: auto; overscroll-behavior-y: auto; padding-bottom: env(safe-area-inset-bottom); }
     }
 
     /* Grain overlay */
