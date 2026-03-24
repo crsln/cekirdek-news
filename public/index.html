@@ -131,7 +131,6 @@
 
     html { height: 100%; overflow: hidden; background-color: var(--c-bg-base); }
     body { height: 100%; overflow: hidden; }
-    @supports (height: 100dvh) { body { height: 100dvh; } }
 
     body {
       background-color: var(--c-bg-base);
@@ -139,6 +138,13 @@
       font-family: 'DM Mono', monospace;
       display: flex;
       flex-direction: column;
+    }
+
+    @media (max-width: 767px) {
+      html { overflow-y: scroll; -webkit-overflow-scrolling: touch; }
+      body { min-height: calc(100% + 1px); overflow: visible; }
+      #app-header, #split-container, #status-bar { flex-shrink: 0; }
+      #split-container { height: 0; flex: 1 1 0; }
     }
 
     /* Grain overlay */
