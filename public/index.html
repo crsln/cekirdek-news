@@ -140,11 +140,14 @@
       flex-direction: column;
     }
 
+    /* Mobile: body scrolls so iOS Safari collapses both address bars */
     @media (max-width: 767px) {
-      html { overflow-y: scroll; -webkit-overflow-scrolling: touch; }
-      body { min-height: calc(100% + 1px); overflow: visible; }
-      #app-header, #split-container, #status-bar { flex-shrink: 0; }
-      #split-container { height: 0; flex: 1 1 0; }
+      html { height: auto; overflow: auto; -webkit-overflow-scrolling: touch; }
+      body { height: auto; overflow: visible; display: block; }
+      #app-header { position: sticky; top: 0; z-index: 100; }
+      #split-container { display: block; overflow: visible; }
+      #left-panel { display: block; overflow: visible; }
+      #cards-scroll { overflow: visible; height: auto; padding-bottom: env(safe-area-inset-bottom); }
     }
 
     /* Grain overlay */
@@ -906,12 +909,10 @@
 
     // ── Hide filter bar on scroll down (mobile only) ───────────────────────────
     (function () {
-      let lastY = 0;
-      document.getElementById('cards-scroll').addEventListener('scroll', function () {
+      window.addEventListener('scroll', function () {
         if (isDesktop()) return;
-        const y = this.scrollTop;
         const bar = document.getElementById('filter-bar');
-        if (y > 10) {
+        if (window.scrollY > 10) {
           bar.classList.add('filter-hidden');
         } else {
           bar.classList.remove('filter-hidden');
@@ -925,23 +926,27 @@
       let touchStartY = 0;
       let pulling = false;
 
-      scroll.addEventListener('touchstart', e => {
-        if (scroll.scrollTop === 0) {
+      function getScrollTop() {
+        return isDesktop() ? scroll.scrollTop : window.scrollY;
+      }
+
+      document.addEventListener('touchstart', e => {
+        if (getScrollTop() === 0) {
           touchStartY = e.touches[0].clientY;
           pulling = true;
         }
       }, { passive: true });
 
-      scroll.addEventListener('touchmove', e => {
+      document.addEventListener('touchmove', e => {
         if (!pulling) return;
       }, { passive: true });
 
-      scroll.addEventListener('touchend', e => {
+      document.addEventListener('touchend', e => {
         if (!pulling) return;
         const touchEndY = e.changedTouches[0].clientY;
         const pullDistance = touchEndY - touchStartY;
         pulling = false;
-        if (pullDistance > 80 && scroll.scrollTop === 0 && !updateBtn.disabled) {
+        if (pullDistance > 80 && getScrollTop() === 0 && !updateBtn.disabled) {
           updateBtn.click();
         }
       }, { passive: true });
