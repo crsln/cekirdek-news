@@ -11,4 +11,7 @@ export const SOURCES = [
   { id: 'dw',         label: 'DW Türkçe',  color: '#5c6b7a', url: 'https://rss.dw.com/xml/rss-tur-all' },
   { id: 'sputnik',    label: 'Sputnik TR', color: '#7a2626', url: 'https://sputniknews.com.tr/export/rss2/archive/index.xml' },
   { id: 'hurriyet',   label: 'Hürriyet',   color: '#4a2d8b', url: 'https://www.hurriyet.com.tr/rss/anasayfa' },
+  { id: 'bloomberght', label: 'BloombergHT',   color: '#cf8a2e', url: 'https://www.bloomberght.com/rss' },
+  { id: 'aa',          label: 'Anadolu Ajansı', color: '#1a56a8', url: 'https://www.aa.com.tr/tr/rss/default?cat=guncel' },
+  { id: 'euronews',    label: 'Euronews TR',    color: '#0172f0', url: 'https://tr.euronews.com/rss' },
 ];

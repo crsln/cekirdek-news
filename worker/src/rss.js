@@ -111,6 +111,11 @@ const BLOCKED_SOURCE_SECTIONS = [
     categoryIncludes: ['tv rehberi'],
   },
   {
+    sourceId: 'cumhuriyet',
+    pathContains: '/yasam/',
+    categoryIncludes: ['yaşam', 'yasam'],
+  },
+  {
     sourceId: 'hurriyet',
     pathContains: '/resmi-ilanlar/',
     categoryIncludes: ['resmi ilanlar', 'resmî ilanlar'],

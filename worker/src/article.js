@@ -4,7 +4,15 @@ import { SOURCES } from './sources.js';
 const EXTRA_ALLOWED_DOMAINS_BY_SOURCE = {
   bbc: ['bbc.com', 'bbc.co.uk', 'bbci.co.uk'],
   dw: ['dw.com'],
+  sputnik: ['anlatilaninotesi.com.tr'],
+  euronews: ['euronews.com'],
 };
+
+// Domains where full-text extraction doesn't work (SPA, JS-rendered content)
+// These will always fall back to RSS summary on the frontend
+const SKIP_EXTRACTION_DOMAINS = new Set([
+  'anlatilaninotesi.com.tr',  // Sputnik TR — SPA, no server-rendered <p> content
+]);
 
 function normalizeHostname(hostname) {
   return String(hostname ?? '').toLowerCase().replace(/\.$/, '').replace(/^www\./, '');
@@ -92,6 +100,14 @@ function extractSummary(paragraphs) {
 }
 
 export async function extractArticle(url, env) {
+  // Skip extraction for domains that don't server-render article content
+  try {
+    const host = normalizeHostname(new URL(url).hostname);
+    if (SKIP_EXTRACTION_DOMAINS.has(host)) {
+      return { ok: false, reason: 'skip_domain' };
+    }
+  } catch { /* invalid URL — fall through to normal flow */ }
+
   // Check KV cache first
   const cacheKey = 'article:' + url;
   const cached = await env.NEWS_CACHE.get(cacheKey);
