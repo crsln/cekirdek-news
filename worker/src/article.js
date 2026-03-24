@@ -12,6 +12,7 @@ const EXTRA_ALLOWED_DOMAINS_BY_SOURCE = {
 // These will always fall back to RSS summary on the frontend
 const SKIP_EXTRACTION_DOMAINS = new Set([
   'anlatilaninotesi.com.tr',  // Sputnik TR — SPA, no server-rendered <p> content
+  'tr.euronews.com',          // Euronews TR — SPA, content in JSON-LD only
 ]);
 
 function normalizeHostname(hostname) {
@@ -94,7 +95,8 @@ function extractSummary(paragraphs) {
     !/internet sitesinde yayınlanan/i.test(p) &&
     !/izin alınmadan|tüm hakları saklıdır|iktibas edilemez|\.com\.tr'ye aittir|Tic\. A\.Ş/i.test(p) &&
     !/kitap dünyasına|indirimli fiyat|hayal gücünüzü|hemen keşfet|ücretsiz kargo|kampanya|fırsatı kaçırma/i.test(p) &&
-    !/çerez|cookie|gizlilik politika|kişisel veri/i.test(p)
+    !/çerez|cookie|gizlilik politika|kişisel veri/i.test(p) &&
+    !/whatsapp|telegram|uygulamamızı indirin|kanalımıza katılın|telefonunuza gelmesi için/i.test(p)
   );
   return filtered.slice(0, 3).join('\n\n');
 }

@@ -162,31 +162,31 @@ const BLOCKED_KEYWORDS = [
 ];
 
 const BLOCKED_SOURCE_SECTIONS = [
-  {
-    sourceId: 'cumhuriyet',
-    pathContains: '/resmi-ilanlar/',
-    categoryIncludes: ['resmi ilanlar', 'resmî ilanlar'],
-  },
-  {
-    sourceId: 'cumhuriyet',
-    pathContains: '/cizerler/',
-    categoryIncludes: ['çizerler', 'cizerler'],
-  },
-  {
-    sourceId: 'cumhuriyet',
-    pathContains: '/yazarlar/',
-    categoryIncludes: ['köşe yazıları', 'kose yazilari', 'yazarlar'],
-  },
-  {
-    sourceId: 'cumhuriyet',
-    pathContains: '/gurme/',
-    categoryIncludes: ['gurme', 'yemek tarifleri'],
-  },
-  {
-    sourceId: 'cumhuriyet',
-    pathContains: '/tv-rehberi/',
-    categoryIncludes: ['tv rehberi'],
-  },
+  // {
+  //   sourceId: 'cumhuriyet',
+  //   pathContains: '/resmi-ilanlar/',
+  //   categoryIncludes: ['resmi ilanlar', 'resmî ilanlar'],
+  // },
+  // {
+  //   sourceId: 'cumhuriyet',
+  //   pathContains: '/cizerler/',
+  //   categoryIncludes: ['çizerler', 'cizerler'],
+  // },
+  // {
+  //   sourceId: 'cumhuriyet',
+  //   pathContains: '/yazarlar/',
+  //   categoryIncludes: ['köşe yazıları', 'kose yazilari', 'yazarlar'],
+  // },
+  // {
+  //   sourceId: 'cumhuriyet',
+  //   pathContains: '/gurme/',
+  //   categoryIncludes: ['gurme', 'yemek tarifleri'],
+  // },
+  // {
+  //   sourceId: 'cumhuriyet',
+  //   pathContains: '/tv-rehberi/',
+  //   categoryIncludes: ['tv rehberi'],
+  // },
   {
     sourceId: 'hurriyet',
     pathContains: '/resmi-ilanlar/',
@@ -322,7 +322,8 @@ function extractSummary(text) {
       p.length <= 800 &&        // skip absurdly long single lines
       !/^\d+[\.\)]\s/.test(p) &&                // skip numbered list items
       !/internet sitesinde yayınlanan/i.test(p) &&  // skip copyright notices
-      !/izin alınmadan|tüm hakları saklıdır|iktibas edilemez|\.com\.tr'ye aittir|Tic\. A\.Ş/i.test(p)
+      !/izin alınmadan|tüm hakları saklıdır|iktibas edilemez|\.com\.tr'ye aittir|Tic\. A\.Ş/i.test(p) &&
+      !/whatsapp|telegram|uygulamamızı indirin|kanalımıza katılın|telefonunuza gelmesi için/i.test(p)
     );
   return paragraphs.slice(0, 3).join('\n\n');
 }

@@ -13,13 +13,13 @@ export const SOURCES = [
     url: 'https://medyascope.tv/feed',
     via: 'direct',
   },
-  {
-    id: 'cumhuriyet',
-    label: 'Cumhuriyet',
-    color: '#c0392b',
-    url: 'https://www.cumhuriyet.com.tr/rss',
-    via: 'direct',
-  },
+  // {
+  //   id: 'cumhuriyet',
+  //   label: 'Cumhuriyet',
+  //   color: '#c0392b',
+  //   url: 'https://www.cumhuriyet.com.tr/rss',
+  //   via: 'direct',
+  // },
   {
     id: 'sozcu',
     label: 'Sözcü',

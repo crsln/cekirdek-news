@@ -85,36 +85,36 @@ const BLOCKED_KEYWORDS = [
 ];
 
 const BLOCKED_SOURCE_SECTIONS = [
-  {
-    sourceId: 'cumhuriyet',
-    pathContains: '/resmi-ilanlar/',
-    categoryIncludes: ['resmi ilanlar', 'resmî ilanlar'],
-  },
-  {
-    sourceId: 'cumhuriyet',
-    pathContains: '/cizerler/',
-    categoryIncludes: ['çizerler', 'cizerler'],
-  },
-  {
-    sourceId: 'cumhuriyet',
-    pathContains: '/yazarlar/',
-    categoryIncludes: ['köşe yazıları', 'kose yazilari', 'yazarlar'],
-  },
-  {
-    sourceId: 'cumhuriyet',
-    pathContains: '/gurme/',
-    categoryIncludes: ['gurme', 'yemek tarifleri'],
-  },
-  {
-    sourceId: 'cumhuriyet',
-    pathContains: '/tv-rehberi/',
-    categoryIncludes: ['tv rehberi'],
-  },
-  {
-    sourceId: 'cumhuriyet',
-    pathContains: '/yasam/',
-    categoryIncludes: ['yaşam', 'yasam'],
-  },
+  // {
+  //   sourceId: 'cumhuriyet',
+  //   pathContains: '/resmi-ilanlar/',
+  //   categoryIncludes: ['resmi ilanlar', 'resmî ilanlar'],
+  // },
+  // {
+  //   sourceId: 'cumhuriyet',
+  //   pathContains: '/cizerler/',
+  //   categoryIncludes: ['çizerler', 'cizerler'],
+  // },
+  // {
+  //   sourceId: 'cumhuriyet',
+  //   pathContains: '/yazarlar/',
+  //   categoryIncludes: ['köşe yazıları', 'kose yazilari', 'yazarlar'],
+  // },
+  // {
+  //   sourceId: 'cumhuriyet',
+  //   pathContains: '/gurme/',
+  //   categoryIncludes: ['gurme', 'yemek tarifleri'],
+  // },
+  // {
+  //   sourceId: 'cumhuriyet',
+  //   pathContains: '/tv-rehberi/',
+  //   categoryIncludes: ['tv rehberi'],
+  // },
+  // {
+  //   sourceId: 'cumhuriyet',
+  //   pathContains: '/yasam/',
+  //   categoryIncludes: ['yaşam', 'yasam'],
+  // },
   {
     sourceId: 'hurriyet',
     pathContains: '/resmi-ilanlar/',
