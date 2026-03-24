@@ -856,7 +856,7 @@
       const cardEl = document.querySelector(`[data-item-id="${CSS.escape(item.id)}"]`);
       if (cardEl) cardEl.classList.add('selected');
 
-      fetchArticleContent(item.link, item.summary);
+      fetchArticleContent(item.link, item.aiSummary || item.summary);
     }
     window.openArticle = openArticle;
 

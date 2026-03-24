@@ -2,12 +2,14 @@
 // Source: ctx.waitUntil() https://developers.cloudflare.com/workers/runtime-apis/context/
 import { refreshFeeds } from './rss.js';
 import { isAllowedUrl, extractArticle } from './article.js';
+import { batchSummarize } from './summarize.js';
 
 // cekirdek-api Worker
 // KV binding: env.NEWS_CACHE (bound to NEWS_CACHE namespace in wrangler.toml)
 // Active usage: read on every request, write on cache miss via ctx.waitUntil()
 
 const CACHE_KEY = 'news:all';
+const SUMMARIES_KEY = 'summaries:batch';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Source: Cloudflare Workers CORS https://developers.cloudflare.com/workers/examples/cors-header-proxy/
@@ -60,6 +62,35 @@ async function refreshAndCache(env, ctx) {
     env.NEWS_CACHE.put(CACHE_KEY, JSON.stringify(fresh), { expirationTtl: 300 })
   );
   return fresh;
+}
+
+/**
+ * enrichWithSummaries — batch AI summarization during cron
+ * Loads cached summaries, identifies new articles, calls Gemini for batch summarization,
+ * embeds AI summaries directly into the items array (denormalization).
+ * @param {object} fresh - feed data from refreshFeeds()
+ * @param {Env} env
+ * @returns {Promise<object>} enriched feed data with aiSummary fields
+ */
+async function enrichWithSummaries(fresh, env) {
+  let cachedSummaries = {};
+  try {
+    const raw = await env.NEWS_CACHE.get(SUMMARIES_KEY);
+    if (raw) cachedSummaries = JSON.parse(raw);
+  } catch { /* ignore parse errors */ }
+
+  const needSummary = fresh.items.filter(item => !cachedSummaries[item.id]);
+
+  if (needSummary.length > 0) {
+    const newSummaries = await batchSummarize(needSummary, env);
+    Object.assign(cachedSummaries, newSummaries);
+  }
+
+  for (const item of fresh.items) {
+    item.aiSummary = cachedSummaries[item.id] || null;
+  }
+
+  return cachedSummaries;
 }
 
 export default {
@@ -143,12 +174,18 @@ export default {
 
   /**
    * scheduled handler — cron trigger (every 15 minutes)
-   * Pre-warms the KV cache so requests almost always hit warm cache.
+   * Pre-warms the KV cache and generates AI summaries for new articles.
    * @param {ScheduledController} controller
    * @param {Env} env
    * @param {ExecutionContext} ctx
    */
   async scheduled(controller, env, ctx) {
-    await refreshAndCache(env, ctx);
+    const fresh = await refreshFeeds();
+    const cachedSummaries = await enrichWithSummaries(fresh, env);
+
+    ctx.waitUntil(Promise.all([
+      env.NEWS_CACHE.put(CACHE_KEY, JSON.stringify(fresh), { expirationTtl: 300 }),
+      env.NEWS_CACHE.put(SUMMARIES_KEY, JSON.stringify(cachedSummaries), { expirationTtl: 604800 }),
+    ]));
   },
 };
